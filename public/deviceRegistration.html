@@ -1,0 +1,179 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="stylesheet" type="text/css" href="main.css">
+	
+	<script type="text/javascript">
+	    function goBack(){
+			window.history.back();
+		}
+	    
+		function check() {
+			if (devform.lat.value!="" && isNaN(devform.lat.value)) {
+				alert("Input numeric value in latitude");
+				devform.lat.focus();
+				return false;
+			}
+
+			if (devform.lon.value!="" && isNaN(devform.lon.value)) {
+				alert("Input numeric value in latitude");
+				devform.lon.focus();
+				return false;
+			}
+
+			var item_id_value = devform.item_id.options[devform.item_id.selectedIndex].value;
+			var formData = {
+				device_name: devform.device_name.value,
+				system_id: devform.system_id.value,
+				item_id: item_id_value, 
+				deployment_time: devform.deployment_time.value,
+				deployment_location: devform.deployment_location.value,
+				lat: devform.lat.value,
+				lon: devform.lon.value
+			};
+			console.log('html formData: ', formData);
+		
+			fetch('/registerDevice', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(formData)
+			})
+			.then(response => {
+				if (response.headers.get("Content-Type").includes("application/json")) {
+					return response.json(); 
+				} else {
+					return response.text(); 
+				}
+			})
+			.then(data => {
+				console.log('Server response:', data);
+				alert('Device (' + formData.device_name + ') is registered.'); 
+				window.location.href = "/deviceList.html";
+			})
+			.catch(error => {
+				console.error('There has been a problem with your fetch operation:', error);
+			});
+		}
+	</script>
+	
+    <title>Device Registration</title>
+</head>
+
+<body>
+	<header>
+
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="main.css">
+
+
+<div class="DeviceTop">
+	DSEM Device Registry - Device Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Register New Device</h1>
+		</div>
+		<form name="devform" action="registerDevice" method="post">
+		<div class="NarrowTable">
+			<div class="SubMenuBar">
+				<button class="SubMenuButton" type="button" onclick="check()">submit</button>
+				<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+			</div>
+			<table>
+				<thead>
+					<tr>
+						<th style="width: 30%;">Attribute</th>
+						<th style="width: 70%;">Value</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<th>Device name</th>
+						<td><input type="text" class="inputText" name="device_name" placeholder="Input"></td>
+					</tr>
+					
+					<tr>
+						<th>System id</th>
+						<td><input type="text" class="inputText" name="system_id" placeholder="Input"></td>
+					</tr>
+					
+					<tr>
+						<th>Item id</th>
+						<td>
+							<select class="inputText" name="item_id">
+
+								<option value="1">(1)DIPEIC01</option>
+
+								<option value="2">(2)DIPEIC02</option>
+
+								<option value="3">(3)DSEM Environmental Information Collector Type 02</option>
+
+								<option value="5">(5)DSEM Controller 01</option>
+
+								<option value="6">(6)Switchbot01</option>
+
+								<option value="7">(7)Door Detector</option>
+
+								<option value="8">(8)DSEM Air Purifier</option>
+
+								<option value="9">(9)My oneM2M deviceLight</option>
+
+								<option value="11">(11)deviceAirPurifier</option>
+								
+								<option value="13">(13)MQ-7</option>
+							</select>
+						</td>
+					</tr>
+					
+					<tr>
+						<th>Deployment time</th>
+						<td><input type="text" class="inputText" name="deployment_time" placeholder="yyyy-MM-dd HH:mm:ss"></td>
+
+						<script>
+							function getCurrentDateTime() {
+								var now = new Date();
+								var year = now.getFullYear();
+								var month = (now.getMonth() + 1).toString().padStart(2, '0');
+								var day = now.getDate().toString().padStart(2, '0');
+								var hours = now.getHours().toString().padStart(2, '0');
+								var minutes = now.getMinutes().toString().padStart(2, '0');
+								var seconds = now.getSeconds().toString().padStart(2, '0');
+								return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+							}
+							window.onload = function () {
+								var currentDateTime = getCurrentDateTime();
+								document.querySelector('input[name="deployment_time"]').value = currentDateTime;
+							};
+						</script>
+					</tr>
+					
+					<tr>
+						<th>Deployment location</th>
+						<td><input type="text" class="inputText" name="deployment_location" placeholder="Input"></td>
+					</tr>
+					
+					<tr>
+						<th>Latitude</th>
+						<td><input type="text" class="inputText" name="lat" placeholder="Input GPS position"></td>
+					</tr>
+					
+					<tr>
+						<th>Longitude</th>
+						<td><input type="text" class="inputText" name="lon" placeholder="Input GPS position"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</form>
+	</main>
+
+
+</body></html>

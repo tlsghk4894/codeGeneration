@@ -1,0 +1,46 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="main.css">
+  <title>Device Registry</title>
+</head>
+
+<body>
+  
+  <header class="MainTop">
+		DSEM Device Registry <br>
+    <button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+    <button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+    <button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+	</header>
+
+  <div class="SubTitleBar">
+    <h1>Select Menu</h1>
+  </div>
+
+  <div class="NarrowTable">
+    <table>
+      <tbody><tr>
+        <th style="width: 20%;">Item</th>
+        <td style="width: 80%; text-align:left;">
+          <ul>
+            <li>Register and management item specification</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <th>Device</th>
+        <td style="text-align:left;">
+          <ul>
+            <li>Register and management device specification</li>
+          </ul>
+        </td>
+      </tr>
+    </tbody></table>
+  </div>
+</body>
+</html>

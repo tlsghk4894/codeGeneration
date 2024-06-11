@@ -1,0 +1,278 @@
+<html><head>
+	<link rel="stylesheet" type="text/css" href="/main.css">
+	<script type="text/javascript">
+		let deletedRows = [];
+		function modiConfirm() {
+			if (confirm("변경 사항을 저장하시겠습니까?")) {
+				var form = document.forms["formitemmodi"];
+				var formData = new FormData(form);
+
+				var tableBodyRows = document.getElementById('tablebody').getElementsByTagName('tr').length;
+				var num = document.getElementById('AddOption').getElementsByTagName('tr').length;
+				var rows=tableBodyRows+num;
+				formData.append('rows', rows);
+				formData.append('tableBodyRows', tableBodyRows);
+
+				formData.append('deletedRows', JSON.stringify(deletedRows));
+				var xhr = new XMLHttpRequest();
+				xhr.open("POST", "/confirmModi", true);
+				xhr.onreadystatechange = function () {
+					if (xhr.readyState === 4 && xhr.status === 200) {
+						//console.log("데이터가 업데이트되었습니다."); 
+						window.location.href = "/itemDetail.html?item_id=" + formData.get("item_id");
+					}
+				};
+				xhr.send(formData);
+			}
+		}
+		function goBack() {
+			window.history.back();
+		}
+	</script>
+   
+	<title>Device metadata modification page</title>
+</head>
+
+<body>
+	<header>
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="/main.css">
+
+
+<div class="ItemTop">
+	DSEM Device Registry - Item Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Item Modification</h1>
+		</div>
+        <h2></h2>
+		<script>
+            const queryString1 = window.location.search;
+            const urlParams1 = new URLSearchParams(queryString1);
+            const itemId1 = urlParams1.get('item_id');
+            fetch('/itemDetail?item_id=' + itemId1) 
+            .then(response => response.json())
+            .then(data => {
+                //console.log('데이터:', data);
+                let model_name;
+                for (let item of data) {
+                    if (item.model_name) {
+                        model_name = item.model_name;
+                        break; 
+                    }
+                }
+                const h2Element = document.createElement('h2');
+                h2Element.textContent = '['+itemId1+'] '+model_name;
+                document.body.appendChild(h2Element);
+            })
+            .catch(error => console.error('에러:', error));
+        </script>
+		
+	<form name="formitemmodi" action="/confirmModi" method="POST">
+			<div class="NarrowTable">
+				<div class="SubMenuBar">
+					<button class="SubMenuButton" type="button" onclick="modiConfirm();" style="margin-top: 53px;">confirm</button>
+					<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+				</div>
+				Common Information
+				<table>
+					<thead>
+						<tr>
+							<th style="width: 30%;">Attribute</th>
+							<th style="width: 70%;">Value</th>
+						</tr>
+					</thead>
+					<tbody id="itemModiBody">
+						<tr>
+							<th>Item id</th>
+							<td><input type="text" class="inputText" id="itemIdInput" name="item_id" readonly style="text-align: center;"></td>
+						</tr>
+						<tr>
+							<th>Registration time</th>
+							<td><input type="text" class="inputText" id="registrationTimeInput" name="registration_time" readonly style="text-align: center;"></td>
+						</tr>
+						<tr>
+							<th>Model name</th>
+							<td><input type="text" class="inputText" id="modelNameInput" name="model_name" style="text-align: center;"></td>
+						</tr>
+						<tr>
+							<th>Device type</th>
+							<td><input type="text" class="inputText" id="deviceTypeInput" name="device_type" style="text-align: center;"></td>
+						</tr>
+						<tr>
+							<th>Manufacturer</th>
+							<td><input type="text" class="inputText" id="manufacturerInput" name="manufacturer" style="text-align: center;"></td>
+						</tr>
+						<tr>
+							<th>Category</th>
+							<td><input type="text" class="inputText" id="categoryInput" name="category" style="text-align: center;"></td>
+						</tr>
+					</tbody></table>
+
+					<script>
+						function findIndexByItemId(data, itemid) {
+							for (let i = 0; i < data.length; i++) {
+								if (data[i].item_id == itemid) {
+									return i; 
+								}
+							}
+							return -1; 
+						}
+						const queryString = window.location.search;
+						if (queryString) {
+							const urlParams = new URLSearchParams(queryString);
+							const itemid = urlParams.get('item_id');
+							//console.log(itemid);
+								function populateTable(data) {
+									//console.log('popul함수 실행');
+									const tbody = document.getElementById('itemModiBody');
+									const index = findIndexByItemId(data, itemid)
+									if (!tbody) {
+										console.error('Error: tbody element not found');
+										return;
+									}
+
+									const itemIdInput = document.getElementById('itemIdInput');
+									const registrationTimeInput = document.getElementById('registrationTimeInput');
+									const modelNameInput = document.getElementById('modelNameInput');
+									const deviceTypeInput = document.getElementById('deviceTypeInput');
+									const manufacturerInput = document.getElementById('manufacturerInput');
+									const categoryInput = document.getElementById('categoryInput');
+
+									if (index !== -1) {
+										const item = data[index];
+
+										const isoString = item.registration_time;
+										const date = new Date(isoString);
+						
+										const year = date.getFullYear();
+										const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
+										const day = date.getDate().toString().padStart(2, '0');
+										const hours = date.getHours().toString().padStart(2, '0');
+										const minutes = date.getMinutes().toString().padStart(2, '0');
+										const seconds = date.getSeconds().toString().padStart(2, '0');
+										const registrationTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+										
+										itemIdInput.value = item.item_id;
+										registrationTimeInput.value = registrationTime;
+										modelNameInput.value = item.model_name;
+										deviceTypeInput.value = item.device_type;
+										manufacturerInput.value = item.manufacturer;
+										categoryInput.value = item.category;
+									} else {
+										console.log('해당 itemId에 대한 데이터를 찾을 수 없습니다.');
+									}
+
+									if (!data || data.length === 0) {
+										console.error('Error: No data available');
+										return;
+									}
+								}
+							fetch('/itemList')
+								.then(response => response.json())
+								.then(data => populateTable(data))
+								.catch(error => console.error('Error:', error));
+						} else {
+							console.log('쿼리 문자열이 없습니다.');
+						}
+					</script>
+		
+				<h2 style="text-align: left;">Specific Information</h2>
+				<table>
+					<thead>
+						<tr>
+							<th>No</th>
+							<th>Group</th>
+							<th style="width:50%;">Key</th>
+							<th style="width:50%;">Value</th>
+							<th>
+								<input type="button" id="append_row" value="add" onclick="addRow()">
+							</th>
+						</tr>
+					</thead>
+
+					<tbody id="tablebody">
+						<script>
+							function addRow() {
+								const tableBody = document.getElementById('AddOption');
+								const newRow = document.createElement('tr');
+								let rowCount = document.getElementById('tablebody').getElementsByTagName('tr').length; // 초기 행 개수
+								let num = document.getElementById('AddOption').getElementsByTagName('tr').length;
+								
+								newRow.innerHTML = `
+									<td><input type="text" class="inputText" name="Dseq${rowCount+num}" value="" placeholder="no${rowCount +1+num}"></td>
+									<td><input type="text" class="inputText" name="Dgroup${rowCount+num}" value="" placeholder="group${rowCount +1+num}"></td>
+									<td><input type="text" class="inputText" name="Dkey${rowCount+num}" value="" placeholder="key${rowCount +1+num}"></td>
+									<td><input type="text" class="inputText" name="Dvalue${rowCount+num}" value="" placeholder="value${rowCount +1+num}"></td>
+									<td><input type="button" value="delete" onclick="deleteRow(this)"></td>
+								`;
+								tableBody.appendChild(newRow);
+								rowCount++; 
+							}
+		
+							function deleteRow(button) {
+								const row = button.parentNode.parentNode;
+								const seq = row.querySelector('td:first-child input').value; 
+								deletedRows.push(seq);
+								row.parentNode.removeChild(row);
+							}
+		
+						</script>
+						
+					</tbody>				
+					<tfoot id="AddOption">
+					</tfoot>
+				</table>
+			</div>
+		
+			<input type="hidden" name="isSize">
+			<script>
+				function populateSpecificTable(itemId) {
+					fetch(`/itemSpecificDetail?item_id=${itemId}`)
+					.then(response => response.json())
+					.then(data => addToTable(data))
+					.catch(error => console.error('Error:', error));
+				}
+			
+				function addToTable(data) {
+					var tableBody = document.querySelector('#tablebody');
+					//console.log(data);
+					data.forEach(function(item) {
+						if(item.item_id ==itemId2){
+							var row = document.createElement('tr');
+							var num = tableBody.getElementsByTagName('tr').length;
+							//console.log(num);
+							row.innerHTML = `<td><input type="text" class="inputText" name="Dseq${num}" value="${num + 1}"</td>
+							<td><input type="text" class="inputText" name="Dgroup${num}" value="${item.md_group}" ></td>
+							<td><input type="text" class="inputText" name="Dkey${num}" value="${item.md_key}"></td>
+							<td><input type="text" class="inputText" name="Dvalue${num}" value="${item.md_value}" ></td>
+							<td><input type="button" value="delete" onclick="deleteRow(this)"></td>
+						`;
+							tableBody.appendChild(row);
+						}
+					});
+				}
+		
+				const queryString2 = window.location.search;
+				const urlParams = new URLSearchParams(queryString2);
+				const itemId2 = urlParams.get('item_id');
+		
+				if (itemId2) {
+					populateSpecificTable(itemId2);
+				} else {
+					console.error('item_id가 없습니다.');
+				}
+			</script>
+
+	</form>
+	</main>
+
+</body></html>

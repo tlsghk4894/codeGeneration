@@ -1,0 +1,93 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="main.css">
+	<script type="text/javascript">
+		function goBack() {
+			window.history.back();
+		}
+	</script>
+	<title>Device List</title>
+</head>
+
+<body>
+	<header>
+	<meta charset="EUC-KR">	
+
+<div class="DeviceTop">
+	DSEM Device Registry - Device Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Device List</h1>
+		</div>
+		<div class="WideTable">
+			<div class="SubMenuBar">
+				<button type="button" onclick="location.href='deviceRegistration.html'">Register</button>
+			</div>
+			<table id="deviceTable">
+				<thead>
+					<tr>
+						<th>Device id</th>
+						<th>Device name</th>
+						<th>System id</th>
+						<th>Item id</th>
+						<th>Item Model</th>
+						<th>Deployment time</th>
+						<th>Deployment location</th>
+						<th>Status</th>
+						<th>Detail</th>
+					</tr>
+				</thead>
+				<tbody>
+
+				</tbody>
+			</table>
+		</div>
+	</main>
+<script>
+	function redirectToDetail(query) {
+		window.location.href = 'itemDetail.html?' + query;
+	}
+
+	function populateTable(data) {
+		var tableBody = document.querySelector('#deviceTable tbody');
+		
+			data.forEach(function(item) {
+				const isoString = item.deployment_time;
+				const date = new Date(isoString);
+
+				const year = date.getFullYear();
+				const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
+				const day = date.getDate().toString().padStart(2, '0');
+				const hours = date.getHours().toString().padStart(2, '0');
+				const minutes = date.getMinutes().toString().padStart(2, '0');
+				const seconds = date.getSeconds().toString().padStart(2, '0');
+				const deploymentTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+				var row = document.createElement('tr');
+				row.innerHTML = '<td>' + item.device_id + '</td>' +
+								'<td>' + item.device_name + '</td>' +
+								'<td>' + item.system_id + '</td>' +
+								'<td class="clickable" onclick="redirectToDetail(\'item_id=' + item.item_id + '\')">' + item.item_id + '</td>' +
+								'<td class="clickable" onclick="redirectToDetail(\'item_id=' + item.item_id + '\')">' + item.model_name + '</td>' +
+								'<td>' + deploymentTime + '</td>' +
+								'<td>' + item.deployment_location + '</td>' +
+								'<td>' + (item.enabled == 1 ? 'enabled' : 'disable') + '</td>' +
+								'<td><button type="button" onclick="location.href=\'deviceDetail.html?device_id=' + item.device_id + '\'">Detail</button></td>';
+				tableBody.appendChild(row);
+		});
+	}
+
+	fetch('/deviceList')
+		.then(response => response.json())
+		.then(data => populateTable(data))
+		.catch(error => console.error('Error:', error));
+</script>
+
+</body></html>

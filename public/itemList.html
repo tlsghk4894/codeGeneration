@@ -1,0 +1,82 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<link rel="stylesheet" type="text/css" href="main.css">
+		<title>Device Item List</title>
+
+	</head>
+
+<body>
+	<header>
+	<meta charset="EUC-KR">	
+		<div class="ItemTop">
+			DSEM Device Registry - Item Management<br>
+			<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+			<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+			<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+			<button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+		</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Item List</h1>
+		</div>
+		<div class="WideTable">
+			
+			<div class="SubMenuBar">
+				<button type="button" onclick="location.href='itemRegistration.html'">Register</button>
+			</div>	
+			<table id="itemTable">
+				<thead>
+					<tr>
+						<th>Item ID</th>
+						<th>Registration Time</th>
+						<th>Model Name</th>
+						<th>Device Type</th>
+						<th>Manufacturer</th>
+						<th>Category</th>
+						<th>Detail</th>
+					</tr>
+				</thead>
+				<tbody>
+					
+				</tbody>
+			</table>
+		</div>
+	</main>
+	<script>
+		function populateTable(data) {
+			var tableBody = document.querySelector('#itemTable tbody');
+				data.forEach(function(item) {
+					const isoString = item.registration_time;
+					const date = new Date(isoString);
+	
+					const year = date.getFullYear();
+					const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
+					const day = date.getDate().toString().padStart(2, '0');
+					const hours = date.getHours().toString().padStart(2, '0');
+					const minutes = date.getMinutes().toString().padStart(2, '0');
+					const seconds = date.getSeconds().toString().padStart(2, '0');
+					const registrationTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+					var row = document.createElement('tr');
+					row.innerHTML = '<td>' + item.item_id + '</td>' +
+									'<td>' + registrationTime + '</td>' +
+									'<td>' + item.model_name + '</td>' +
+									'<td>' + item.device_type + '</td>' +
+									'<td>' + item.manufacturer + '</td>' +
+									'<td>' + item.category + '</td>' +
+									'<td><button type="button" onclick="location.href=\'itemDetail.html?item_id=' + item.item_id + '\'">Detail</button></td>';
+					tableBody.appendChild(row);
+			});
+		}
+
+		fetch('/itemList')
+			.then(response => response.json())
+			.then(data => populateTable(data))
+			.catch(error => console.error('Error:', error));
+	</script>
+
+</body></html>

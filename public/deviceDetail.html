@@ -1,0 +1,313 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="/main.css">
+	<script type="text/javascript">   
+		function goBack() {
+			window.history.back();
+		}
+		
+		function activation() {
+			var msg = 'Activation of this device make new measurement table';
+			msg += 'refering current item, but existed logs are deleted.';
+			msg += ' Are you sure to delete this logs?';
+			if (confirm(msg)) {
+				location.href='actionActivateDevice.jsp?device_id=1';
+			}
+		}
+		
+        let deviceName = '';
+        function fetchDeviceDetails() {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const deviceId = urlParams.get('device_id');
+            fetch('/deviceList')
+            .then(response => response.json())
+            .then(data => {
+                const device = data.find(item => item.device_id.toString() === deviceId);
+                if (device) {
+                    deviceName = device.device_name; 
+                    const h2Element = document.querySelector('h2');
+                    if (h2Element) {
+                        h2Element.textContent = `[${deviceId}] ${deviceName}`;
+                    }
+                } else {
+                    console.error('Device not found');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+		function confirmDelete(num) {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const deviceId = urlParams.get('device_id');
+            console.log(deviceId);
+			if (num==1) {
+				if (confirm(`Delete device ${deviceName} with measurement table?`)) {
+					window.location.href=`/actionDeleteDevice?device_id=${deviceId}&type=${num}`;
+				}
+			} else if (num==2) {
+				if (confirm(`Delete only device ${deviceName} record in device list?`)) {
+					window.location.href=`/actionDeleteDevice?device_id=${deviceId}&type=${num}`;
+				}
+			} 
+		}
+
+    </script>
+	<title>Device Detail</title>
+</head>
+<body>
+	<header>
+		
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="/main.css">
+
+
+<div class="DeviceTop">
+	DSEM Device Registry - Device Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Device Detail</h1>
+		</div>
+		<h2></h2>
+
+		<div class="NarrowTable">
+			<div class="SubMenuBar">
+                <script type="text/javascript">
+                    document.addEventListener('DOMContentLoaded', function() {
+                        function getDeviceIdFromQueryString() {
+                            const queryString = window.location.search;
+                            const urlParams = new URLSearchParams(queryString);
+                            return urlParams.get('device_id'); 
+                        }
+                
+                        const modifyButton = document.querySelector('.SubMenuButton'); 
+                        const deviceId = getDeviceIdFromQueryString(); 
+                        
+                        if (modifyButton && deviceId) {
+                            modifyButton.onclick = function() {
+                                location.href = `deviceModification.html?device_id=${deviceId}`;
+                            };
+                        }
+                    });
+                </script>
+				<button class="SubMenuButton" type="button" onclick="location.href='deviceModification.html?device_id=1'">modify</button>
+				<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+			</div>
+			Device Information
+			<table id="device">
+				<thead>
+					<tr>
+						<th style="width: 30%;">Attribute</th>
+						<th style="width: 70%;">Value</th>
+					</tr>
+				</thead>
+				<tbody id="deviceDetailBody">
+                    <tr>
+					    <th>Device id</th>
+					    <td></td>
+				    </tr>
+                    <tr>
+                        <th>Device name</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>System id</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Table name</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Item id</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Item model</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Deployment time</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Deployment location</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Latitude</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Longitude</th>
+                        <td></td>
+                    </tr>
+
+                    <tr>
+                        <th>Status</th>
+                        <td></td>
+                    </tr>
+			</tbody></table>
+            <script>
+                const queryString = window.location.search;
+            
+                if (queryString) {
+                    const urlParams = new URLSearchParams(queryString);
+                    const deviceId = urlParams.get('device_id');
+                    function populateTable(data) {
+                        console.log(data);
+                        var tableBody = document.querySelector('#device tbody');
+                            data.forEach(function(item) {
+                                if(item.device_id==deviceId){
+                                    //console.log("들어옴");
+                                    const tbody = document.getElementById('deviceDetailBody');
+                                    if (!tbody) {
+                                        console.error('Error: tbody element not found');
+                                        return;
+                                    }
+                                    const isoString = item.deployment_time;
+                                    const date = new Date(isoString);
+    
+                                    const year = date.getFullYear();
+                                    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // getMonth()는 0부터 시작하므로 +1
+                                    const day = date.getDate().toString().padStart(2, '0');
+                                    const hours = date.getHours().toString().padStart(2, '0');
+                                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                                    const seconds = date.getSeconds().toString().padStart(2, '0');
+                                    const deploymentTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+                                    tbody.querySelector('tr:nth-child(1) td').textContent = item.device_id;
+                                    tbody.querySelector('tr:nth-child(2) td').textContent = item.device_name;
+                                    tbody.querySelector('tr:nth-child(3) td').textContent = item.system_id;
+                                    tbody.querySelector('tr:nth-child(4) td').textContent = item.table_name;
+                                    tbody.querySelector('tr:nth-child(5) td').textContent = item.item_id;
+                                    tbody.querySelector('tr:nth-child(6) td').textContent = item.model_name;
+                                    tbody.querySelector('tr:nth-child(7) td').textContent = deploymentTime;
+                                    tbody.querySelector('tr:nth-child(8) td').textContent = item.deployment_location;
+                                    tbody.querySelector('tr:nth-child(9) td').textContent = item.latitude;
+                                    tbody.querySelector('tr:nth-child(10) td').textContent = item.longitude;
+                                    tbody.querySelector('tr:nth-child(11) td').textContent = (item.enabled == 1 ? 'enabled' : 'disable');
+                                
+                                    const itemIdRow = tbody.children[4]; 
+                                    const itemModelRow = tbody.children[5]; 
+
+                                    const itemDetailUrl = `itemDetail.html?item_id=${item.item_id}`; 
+                                    itemIdRow.classList.add("Clickable"); 
+                                    itemModelRow.classList.add("Clickable"); 
+
+                                    itemIdRow.onclick = () => { window.location.href = itemDetailUrl; };
+                                    itemModelRow.onclick = () => { window.location.href = itemDetailUrl; };
+                                }
+                        }); 
+                    }
+            
+                } else {
+                    console.log('쿼리 문자열이 없습니다.');
+                }
+               
+                fetch('/deviceList')
+                    .then(response => response.json())
+                    .then(data => populateTable(data))
+                    .catch(error => console.error('Error:', error));
+                    </script>
+			
+			<br><br>
+
+<meta charset="UTF-8">
+
+
+	Specific Information
+
+    <button class="codeGeneration" type="button">Code</button>
+	<table>
+		<thead>
+			<tr>
+				<th style="width:10%;">Group</th>
+				<th style="width:45%;">Key</th>
+				<th style="width:45%;">Value</th>
+			</tr>
+		</thead>
+		<tbody id="specificBody"></tbody>
+	</table>
+    <script>
+        function fetchDeviceDetails(deviceId) {
+            fetch('/deviceDetail') 
+            .then(response => response.json())
+            .then(data => {
+                const device = data.find(item => item.device_id == parseInt(deviceId, 10)); 
+                if (device) {
+                    console.log(device.item_id); 
+                    fetchSpecificDetails(device.item_id); 
+                } else {
+                    console.error('Device details not found or item_id is missing');
+                }
+            })
+            .catch(error => console.error('Error fetching device details:', error));
+        }
+        function fetchSpecificDetails(itemId) {
+            fetch(`/itemSpecificDetail?item_id=${itemId}`)
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.querySelector('#specificBody');
+                tableBody.innerHTML = ''; 
+                data.forEach(item => {
+                    if(item.item_id ==itemId){
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td>${item.md_group}</td>` +
+                                        `<td>${item.md_key}</td>` +
+                                        `<td>${item.md_value}</td>`;
+                        tableBody.appendChild(row);
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching specific details:', error));
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+    const codeButton = document.querySelector('.codeGeneration');
+    codeButton.addEventListener('click', handleCodeButtonClick); 
+});
+
+// Code 버튼을 클릭했을 때 실행되는 함수
+function handleCodeButtonClick() {
+    const itemIdElement = document.querySelector('#deviceDetailBody tr:nth-child(5) td:nth-child(2)'); // Device Information 테이블에서 item_id를 보여주는 HTML 요소 선택
+    const deviceIdElement = document.querySelector('#deviceDetailBody tr:nth-child(1) td:nth-child(2)'); // Device Information 테이블에서 device_id를 보여주는 HTML 요소 선택
+
+    const itemId = itemIdElement.textContent.trim(); // HTML 요소에서 item_id 가져오기
+    const deviceId = deviceIdElement.textContent.trim(); // HTML 요소에서 device_id 가져오기
+
+    if (itemId && deviceId) {
+        window.location.href = `codeGeneration.html?item_id=${itemId}&device_id=${deviceId}`; // CodeGeneration 페이지로 이동하면서 item_id와 device_id를 전달
+    } else {
+        console.error('Item_id or Device_id is missing');
+    }
+}
+
+
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const deviceId = urlParams.get('device_id');
+            if (deviceId) {
+                fetchDeviceDetails(deviceId);
+            } else {
+                console.error('Device_id is missing in the URL');
+            }
+        });
+        </script>
+			<div class="SubMenuBar">
+				<button class="SubMenuButton" type="button" onclick="confirmDelete(1);">delete device with table</button>
+				<button class="SubMenuButton" type="button" onclick="confirmDelete(2);">delete device only record</button>
+			</div>
+			<br><br>
+		</div>
+	</main>
+
+</body></html>

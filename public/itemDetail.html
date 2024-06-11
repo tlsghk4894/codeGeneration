@@ -1,0 +1,293 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="/main.css">
+	<script type="text/javascript">   
+		function goBack() {
+			window.history.back();
+		}
+		function confirmDelete(itemId) {
+            var dilist_size = 0;
+            if (dilist_size > 0) {
+                alert('You cannot delete this item. The item is referenced by several devices. Modify or delete the devices first.');
+                return false;
+            }
+        
+            if (confirm('Delete Item DSEM Environmental Information Collector Type 1 ?')) {
+                fetch(`/actionDeleteItem?item_id=${itemId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    //console.log(data);
+                    window.location.href = "/itemList.html";
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        }
+        
+    </script>
+	<title>Device Item Metadata Detail</title>
+</head>
+<body>
+	<header>
+		
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="main.css">
+
+
+<div class="ItemTop">
+	DSEM Device Registry - Item Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Item Detail</h1>
+		</div>
+        <script>
+            const queryString1 = window.location.search;
+            const urlParams1 = new URLSearchParams(queryString1);
+            const itemId1 = urlParams1.get('item_id');
+            fetch('/itemDetail?item_id=' + itemId1)
+            .then(response => response.json())
+            .then(data => {
+                //console.log('데이터:', data);
+                let model_name;
+                for (let item of data) {
+                    if (item.model_name) {
+                        model_name = item.model_name;
+                        break; 
+                    }
+                }
+                const h2Element = document.createElement('h2');
+                h2Element.textContent = '['+itemId1+'] '+model_name;
+                document.body.appendChild(h2Element);
+            })
+            .catch(error => console.error('에러:', error));
+        </script>
+
+		<div class="NarrowTable">
+			<div class="SubMenuBar" style="margin-top: 40px;">
+                <script>
+                    function goToItemModification() {
+                        const queryString4 = window.location.search;
+                        const urlParams4 = new URLSearchParams(queryString4);
+                        const itemId4 = urlParams.get('item_id');
+                        window.location.href = 'itemModification.html?item_id=' + itemId4;
+                    }
+
+                </script>
+				<button id="modifyButton" class="SubMenuButton" type="button">modify</button>
+                <script>
+                    document.getElementById('modifyButton').addEventListener('click', goToItemModification);
+                </script>
+				<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+			</div>
+			Common Information
+			<table id="information">
+				<thead>
+					<tr><th style="width: 30%;">Attribute</th>
+					<th style="width: 70%;" id="value">Value</th>
+				</tr></thead>
+				<tbody id="itemDetailBody">
+                    <tr>
+                        <th>Item id</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Registration time</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Model name</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Device type</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Manufacturer</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Category</th>
+                        <td></td>
+                    </tr>
+			    </tbody>
+            </table>
+
+            <script>
+                    
+                function showItemDetail(itemId) {
+                    window.location.href = `itemDetail.html?item_id=${itemId}`;
+                }
+                const queryString = window.location.search;
+            
+                if (queryString) {
+                    const urlParams = new URLSearchParams(queryString);
+                    const itemId = urlParams.get('item_id');
+                    
+                    //console.log("itemId "+itemId);
+            
+                    function populateTable(data) {
+                        var tableBody = document.querySelector('#information tbody');
+                            data.forEach(function(item) {
+                                //console.log("item.item_id "+item.item_id);
+                                //console.log("itemId "+itemId);
+                                if(item.item_id==itemId){
+                                    //console.log("들어옴");
+                                    const isoString = item.registration_time;
+                                    const date = new Date(isoString);
+                    
+                                    const year = date.getFullYear();
+                                    const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
+                                    const day = date.getDate().toString().padStart(2, '0');
+                                    const hours = date.getHours().toString().padStart(2, '0');
+                                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                                    const seconds = date.getSeconds().toString().padStart(2, '0');
+                                    const registrationTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+                                    const tbody = document.getElementById('itemDetailBody');
+                                    if (!tbody) {
+                                        console.error('Error: tbody element not found');
+                                        return;
+                                    }
+                                    tbody.querySelector('tr:nth-child(1) td').textContent = item.item_id;
+                                    tbody.querySelector('tr:nth-child(2) td').textContent = registrationTime;
+                                    tbody.querySelector('tr:nth-child(3) td').textContent = item.model_name;
+                                    tbody.querySelector('tr:nth-child(4) td').textContent = item.device_type;
+                                    tbody.querySelector('tr:nth-child(5) td').textContent = item.manufacturer;
+                                    tbody.querySelector('tr:nth-child(6) td').textContent = item.category;
+                                }
+                        }); 
+                    }
+            
+                } else {
+                    console.log('쿼리 문자열이 없습니다.');
+                }
+               
+                fetch('/itemList')
+                    .then(response => response.json())
+                    .then(data => populateTable(data))
+                    .catch(error => console.error('Error:', error));
+                    </script>
+			<br><br>
+		
+<meta charset="UTF-8">
+
+	Specific Information
+	<table class="specific">
+        <thead>
+            <tr>
+                <th style="width:10%;">Group</th>
+                <th style="width:45%;">Key</th>
+                <th style="width:45%;">Value</th>
+            </tr>
+        </thead>
+        <tbody id="specificBody"></tbody>
+    </table>
+    
+    <script>
+        function populateSpecificTable(itemId) {
+            fetch(`/itemSpecificDetail?item_id=${itemId}`) 
+            .then(response => response.json())
+            .then(data => addToTable(data))
+            .catch(error => console.error('Error:', error));
+        }
+    
+        function addToTable(data) {
+            var tableBody = document.querySelector('#specificBody');
+            data.forEach(function(item) {
+                if(item.item_id ==itemId2){
+                    var row = document.createElement('tr');
+                    row.innerHTML = '<td>' + item.md_group + '</td>' +
+                                    '<td>' + item.md_key + '</td>' +
+                                    '<td>' + item.md_value + '</td>';
+                    tableBody.appendChild(row);
+                }
+            });
+        }
+
+        const queryString2 = window.location.search;
+        const urlParams = new URLSearchParams(queryString2);
+        const itemId2 = urlParams.get('item_id');
+
+        if (itemId2) {
+            populateSpecificTable(itemId2);
+        } else {
+            console.error('item_id가 없습니다.');
+        }
+    </script>
+			<br><br>
+			
+
+<meta charset="UTF-8">
+
+
+	Referencing Devices
+	<table>
+		<thead>
+			<tr>
+				<th style="width:20%;">Device ID</th>
+				<th style="width:60%;">Device Name</th>
+				<th style="width:20%;">Status</th>
+			</tr>
+		</thead>
+		<tbody id="deviceBody">
+
+		</tbody>
+	</table>
+
+    <script>
+        function populateDeviceTable(itemId) {
+            fetch(`/itemDetail?item_id=${itemId}`)
+            .then(response => response.json())
+            .then(data => addToTable2(data))
+            .catch(error => console.error('Error:', error));
+        }
+    
+        function addToTable2(data) {
+            var tableBody = document.querySelector('#deviceBody');
+            //console.log(data);
+            data.forEach(function(item) {
+                if(item.device_id ==itemId3){
+                    var row = document.createElement('tr');
+                    row.innerHTML = '<td>' + item.device_id + '</td>' +
+                                    '<td>' + item.device_name + '</td>' +
+                                    '<td>' + item.enabled + '</td>';
+                    tableBody.appendChild(row);
+                }
+            });
+        }
+
+        const queryString3 = window.location.search;
+        const urlParams3 = new URLSearchParams(queryString3);
+        const itemId3 = urlParams.get('item_id');
+
+        if (itemId3) {
+            populateDeviceTable(itemId3);
+        } else {
+            console.error('item_id가 없습니다.');
+        }
+    </script>
+    <br>
+			<div class="SubMenuBar">
+				<button class="SubMenuButton" type="button" onclick="confirmDelete(itemId3);">delete item</button>
+			</div>
+			<br><br>
+		</div>
+	</main>
+
+</body>
+
+
+</html>

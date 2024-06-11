@@ -1,0 +1,331 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="/main.css">
+	<script type="text/javascript">   
+		function goBack() {
+			window.history.back();
+		}
+		
+		function activation() {
+			var msg = 'Activation of this device make new measurement table';
+			msg += 'refering current item, but existed logs are deleted.';
+			msg += ' Are you sure to delete this logs?';
+			if (confirm(msg)) {
+				location.href='actionActivateDevice.jsp?device_id=1';
+			}
+		}
+		
+        let deviceName = '';
+        function fetchDeviceDetails() {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const deviceId = urlParams.get('device_id');
+            fetch('/deviceList')
+            .then(response => response.json())
+            .then(data => {
+                const device = data.find(item => item.device_id.toString() === deviceId);
+                if (device) {
+                    deviceName = device.device_name; 
+                    const h2Element = document.querySelector('h2');
+                    if (h2Element) {
+                        h2Element.textContent = `[${deviceId}] ${deviceName}`;
+                    }
+                } else {
+                    console.error('Device not found');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+		function confirmDelete(num) {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const deviceId = urlParams.get('device_id');
+            console.log(deviceId);
+			if (num==1) {
+				if (confirm(`Delete device ${deviceName} with measurement table?`)) {
+					window.location.href=`/actionDeleteDevice?device_id=${deviceId}&type=${num}`;
+				}
+			} else if (num==2) {
+				if (confirm(`Delete only device ${deviceName} record in device list?`)) {
+					window.location.href=`/actionDeleteDevice?device_id=${deviceId}&type=${num}`;
+				}
+			} 
+		}
+
+    </script>
+	<title>Arduino Detail</title>
+</head>
+<body>
+	<header>
+		
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="/main.css">
+
+
+<div class="DeviceTop">
+	DSEM Device Registry - Device Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='Arduino.html'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Arduino Detail</h1>
+		</div>
+		<h2></h2>
+
+		<div class="NarrowTable">
+			<div class="SubMenuBar">
+                <script type="text/javascript">
+                    document.addEventListener('DOMContentLoaded', function() {
+                        function getDeviceIdFromQueryString() {
+                            const queryString = window.location.search;
+                            const urlParams = new URLSearchParams(queryString);
+                            return urlParams.get('arduino_id'); 
+                        }
+                
+                        const modifyButton = document.querySelector('.SubMenuButton'); 
+                        const ArduinoId = getDeviceIdFromQueryString(); 
+                        
+                        if (modifyButton && ArduinoId) {
+                            modifyButton.onclick = function() {
+                                location.href = `ArduinoModification.html?Arduino_id=${ArduinoId}`;
+                            };
+                        }
+                    });
+                </script>
+				<button class="SubMenuButton" type="button" onclick="location.href='ArduinoModification.html?Arduino_id=1'">modify</button>
+				<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+			</div>
+			Arduino Information
+			<table id="arduino">
+				<thead>
+					<tr>
+						<th style="width: 30%;">Attribute</th>
+						<th style="width: 70%;">Value</th>
+					</tr>
+				</thead>
+				<tbody id="arduinoDetailBody">
+                    <tr>
+					    <th>Arduino_ID</th>
+					    <td></td>
+				    </tr>
+                    <tr>
+                        <th>Arduino_Type</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>measurement_cycle</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Power</th>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th>Purpose</th>
+                        <td></td>
+                    </tr>
+
+			</tbody></table>
+            <script>
+                const queryString = window.location.search;
+            
+                if (queryString) {
+                    const urlParams = new URLSearchParams(queryString);
+                    const arduinoId = urlParams.get('arduino_id');
+                    function populateTable(data) {
+                        console.log(data);
+                        var tableBody = document.querySelector('#arduino tbody');
+                            data.forEach(function(item) {
+                                if(item.arduinoId==arduinoId){
+                                    //console.log("들어옴");
+                                    const tbody = document.getElementById('arduinoDetailBody');
+                                    if (!tbody) {
+                                        console.error('Error: tbody element not found');
+                                        return;
+                                    }
+
+                                    tbody.querySelector('tr:nth-child(1) td').textContent = item.arduinoId;
+                                    tbody.querySelector('tr:nth-child(2) td').textContent = item.arduinoType;
+                                    tbody.querySelector('tr:nth-child(3) td').textContent = item.measurement_cycle;
+                                    tbody.querySelector('tr:nth-child(4) td').textContent = item.power;
+                                    tbody.querySelector('tr:nth-child(5) td').textContent = item.purpose;
+                                }
+                        }); 
+                    }
+                }else{
+                    console.log('쿼리 문자열이 없습니다.');
+                }
+               
+                fetch('/arduinoList')
+                    .then(response => response.json())
+                    .then(data => populateTable(data))
+                    .catch(error => console.error('Error:', error));
+                
+                </script>
+			
+			<br><br>
+
+            Pin&Sensor Information
+
+            <div class="SubMenuBar">
+                <button class="codeGeneration" type="button">Code Generate</button>
+                <button class="codeUpload" type="button">Code Upload</button>
+            </div>
+            <table id="arduinoPins">
+				<thead>
+					<tr>
+						<th>pin_id</th>
+						<th>arduino_id</th>
+                        <th>pin_type</th>
+                        <th>pin_num</th>
+                        <th>sensor_type</th>
+                        <th>library</th>
+					</tr>
+				</thead>
+				<tbody id="arduinoSpecificBody">
+			</tbody></table>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Fetch the Arduino ID from the URL parameters
+                    const queryString = window.location.search;
+                    if (queryString) {
+                        const urlParams = new URLSearchParams(queryString);
+                        const arduinoId = urlParams.get('arduino_id');
+                        if (arduinoId) {
+                            // Fetch the Arduino pin data
+                            fetch('/arduinoPinsList')
+                            .then(response => {
+                                if (response.ok) {
+                                    return response.json();
+                                } else {
+                                    throw new Error('Network response was not ok.');
+                                }
+                            })
+                            .then(data => {
+                                populatePinTable(data, arduinoId);
+                            })
+                            .catch(error => {
+                                console.error('Error fetching Arduino pin data:', error);
+                            });
+                        } else {
+                            console.log('Arduino ID not found in URL parameters.');
+                        }
+                    } else {
+                        console.log('No query string present.');
+                    }
+                });
+            
+                function populatePinTable(data, arduinoId) {
+                    console.log('Received data:', data);
+                    const tbody = document.getElementById('arduinoSpecificBody');
+                    if (!tbody) {
+                        console.error('Error: tbody element not found');
+                        return;
+                    }
+            
+                    // Filter and populate the data
+                    const filteredData = data.filter(item => item.arduino_id.toString() === arduinoId);
+                    if (filteredData.length === 0) {
+                        console.log('No matching data found for Arduino ID:', arduinoId);
+                        return;
+                    }
+            
+                    filteredData.forEach(item => {
+                        console.log('Populating data for:', item);
+
+                        // Create a new row for each pin
+                        const row = document.createElement('tr');
+
+                        // Create and populate cells for each attribute
+                        const attributes = ['pin_id', 'arduino_id', 'pin_num', 'pin_type', 'sensor_type', 'library'];
+                        attributes.forEach(attr => {
+                            const cell = document.createElement('td');
+                            cell.textContent = item[attr];
+                            row.appendChild(cell);
+                        });
+
+                        tbody.appendChild(row);
+                    });
+                }
+            </script>
+            
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const codeButton = document.querySelector('.codeGeneration');
+                    codeButton.addEventListener('click', function() {
+                        const arduinoId = new URLSearchParams(window.location.search).get('arduino_id');
+                        if (!arduinoId) {
+                            console.error('Arduino ID is missing in the URL');
+                            alert('Arduino ID is missing!');
+                            return;
+                        }
+                
+                        // Fetch the Arduino details from the table
+                        const arduinoDetails = {
+                            arduinoId: document.querySelector('#arduinoDetailBody tr:nth-child(1) td').textContent,
+                            arduinoType: document.querySelector('#arduinoDetailBody tr:nth-child(2) td').textContent,
+                            measurement_cycle: document.querySelector('#arduinoDetailBody tr:nth-child(3) td').textContent,
+                            power: document.querySelector('#arduinoDetailBody tr:nth-child(4) td').textContent,
+                            purpose: document.querySelector('#arduinoDetailBody tr:nth-child(5) td').textContent
+                        };
+                
+                        // Fetch the Arduino pin details from the table
+                        const pins = [];
+                        const pinRows = document.querySelectorAll('#arduinoSpecificBody tr');
+                        pinRows.forEach(row => {
+                            const pinDetails = {
+                                pin_id: row.cells[0].textContent,
+                                arduino_id: row.cells[1].textContent,
+                                pin_type: row.cells[2].textContent,
+                                pin_num: row.cells[3].textContent,
+                                sensor_type: row.cells[4].textContent,
+                                library: row.cells[5].textContent
+                            };
+                            pins.push(pinDetails);
+                        });
+                
+                        const requestData = {
+                            arduinoDetails: arduinoDetails,
+                            pins: pins
+                        };
+                        // console.log('Request Data: ', requestData)/
+                        fetch('/generateCode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestData)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.code) {
+                                // Display generated code in a new window or a modal
+                                window.open().document.write(`<pre>${data.code}</pre>`);
+                            } else {
+                                alert('Failed to generate code');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error generating code:', error);
+                            alert('Error generating code. Please try again.');
+                        });
+                    });
+                });
+                </script>
+                
+			<div class="SubMenuBar">
+				<button class="SubMenuButton" type="button" onclick="confirmDelete(1);">delete device with table</button>
+				<button class="SubMenuButton" type="button" onclick="confirmDelete(2);">delete device only record</button>
+			</div>
+			<br><br>
+		</div>
+	</main>
+
+
+</body></html>

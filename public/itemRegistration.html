@@ -1,0 +1,114 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="stylesheet" type="text/css" href="main.css">
+	
+	<script type="text/javascript">
+		function goBack(){
+			window.history.back();
+		}
+		
+		function check() {
+			var model_name = document.forms["myform"]["model_name"].value;
+			console.log('model_name: '+model_name);
+			var device_type = document.forms["myform"]["device_type"].value;
+			var manufacturer = document.forms["myform"]["manufacturer"].value;
+			var category = document.forms["myform"]["category"].value;
+		
+			if (model_name === "" || device_type === "" || manufacturer === "" || category === "") {
+				alert("Please fill in all fields.");
+				return false;
+			} else {
+				// 서버로 전송할 데이터 객체 생성
+				var data = {
+					model_name: model_name,
+					device_type: device_type,
+					manufacturer: manufacturer,
+					category: category
+				};
+		
+				// 서버로 POST 요청 보내기
+				fetch('/actionItemRegistration', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(data)
+				})
+				.then(response => response.json())
+				.then(data => {
+					console.log(data);
+					window.location.href = "/itemList.html";
+				})
+				.catch(error => console.error('Error:', error));
+		
+				return true; // 폼 제출 진행
+			}
+		}
+		
+	</script>
+    <title>Device Item Register</title>
+</head>
+
+<body>
+	<header>
+		
+
+
+	<meta charset="EUC-KR">	
+	<link rel="stylesheet" type="text/css" href="main.css">
+
+
+<div class="ItemTop">
+	DSEM Device Registry - Item Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Register New Item</h1>
+		</div>
+		<form name="myform" action="/actionItemRegistration" method="post">
+		<div class="NarrowTable">
+
+			<table>
+				<thead>
+					<tr>
+						<th style="width: 30%;">Metadata</th>
+						<th style="width: 70%;">Value</th>
+					</tr>
+				</thead>
+				<tbody>
+                    <div class="SubMenuBar">
+						<button class="SubMenuButton" type="button" onclick="check()">submit</button>
+                        <button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+                    </div>
+					<tr>
+						<th>Model name</th>
+						<td><input type="text" class="inputText" name="model_name" placeholder="input"></td>
+					</tr>
+					<tr>
+						<th>Device type</th>
+						<td><input type="text" class="inputText" name="device_type" placeholder="input"></td>
+					</tr>
+					<tr>
+						<th>Manufacturer</th>
+						<td><input type="text" class="inputText" name="manufacturer" placeholder="input"></td>
+					</tr>
+					<tr>
+						<th>Category</th>
+						<td><input type="text" class="inputText" name="category" placeholder="input"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+        
+		</form>
+	</main>
+
+
+</body></html>

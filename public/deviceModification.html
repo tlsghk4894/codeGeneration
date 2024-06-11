@@ -1,0 +1,222 @@
+<html><head>
+	<link rel="stylesheet" type="text/css" href="/main.css">
+		
+	<script type="text/javascript">   
+       	function goBack(){
+       		window.history.back();
+       	}
+	</script>
+    
+	<title>Device metadata modification page</title></head>
+<body>
+	<header>
+	<meta charset="EUC-KR">	
+    <link rel="stylesheet" type="text/css" href="/main.css">
+
+<div class="DeviceTop">
+	DSEM Device Registry - Device Management<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
+</div>
+
+
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Device Modification</h1>
+		</div>
+        <script>
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const deviceId = urlParams.get('device_id');
+            fetch('/deviceDetail?device_id=' + deviceId) 
+            .then(response => response.json())
+            .then(data => {
+                let device_name;
+                data.forEach(function(item) {
+                    if (item.device_id==deviceId) {
+                        device_name = item.device_name;
+                    }
+                });
+                const h2Element = document.createElement('h2');
+                h2Element.textContent = '['+deviceId+'] '+device_name;
+                document.body.appendChild(h2Element);
+            })
+            .catch(error => console.error('에러:', error));
+        </script>
+
+		<form name="formdevmodi" action="/actionDeviceModification" method="POST">
+		<div class="NarrowTable">
+			<div class="SubMenuBar">
+				<button class="SubMenuButton" type="submit" style="margin-top: 65px;">confirm</button>
+				<button class="SubMenuButton" type="button" onclick="goBack();">back</button>
+			</div>
+			Device Information
+			<table>
+				<thead>
+					<tr>
+						<th style="width: 30%;">Attribute</th>
+						<th style="width: 70%;">Value</th>
+					</tr>
+				</thead>
+				<tbody id="deviceModiBody">
+					<tr>
+						<th>Device id</th>
+						<td><input type="text" class="inputText" id="deviceIdInput" name="device_id" readonly="" >
+					</td></tr>
+					<tr>
+						<th>Device name</th>
+						<td><input type="text" class="inputText" id="DeviceNameInput" name="device_name"></td>
+					</tr>
+					<tr>
+						<th>System id</th>
+						<td><input type="text" class="inputText" id="SystemIdInput" name="system_id" ></td>
+					</tr>
+					<tr>
+						<th>Table name</th>
+						<td><input type="text" class="inputText" id="TableNameInput" name="table_name" readonly="">
+					</td></tr>
+					<tr>
+						<th>Item id</th>
+						<td>
+							<select class="inputText" id="ItemIdInput" name="item_id">
+
+								<option value="1" selected="">
+									(1)DIPEIC01
+								</option>
+
+								<option value="2">
+									(2)DIPEIC02
+								</option>
+
+								<option value="3">
+									(3)DSEM Environmental Information Collector Type 02
+								</option>
+
+								<option value="5">
+									(5)DSEM Controller 01
+								</option>
+
+								<option value="6">
+									(6)Switchbot01
+								</option>
+
+								<option value="7">
+									(7)Door Detector
+								</option>
+
+								<option value="8">
+									(8)DSEM Air Purifier
+								</option>
+
+								<option value="9">
+									(9)My oneM2M deviceLight
+								</option>
+
+								<option value="11">
+									(11)deviceAirPurifier
+								</option>
+
+								<option value="12">
+									(12)Dust sensor	
+								</option>
+							</select>
+						</td>
+					</tr>	
+					<tr>
+						<th>Deployment time</th>
+						<td><input type="text" class="inputText" id="DeploymentTimeInput" name="deployment_time" ></td>
+					</tr>
+					<tr>
+						<th>Deployment location</th>
+						<td><input type="text" class="inputText" id="DeploymentLocationInput" name="deployment_location" >
+						</td>
+					</tr>
+					<tr>
+						<th>Latitude</th>
+						<td><input type="text" class="inputText" id="LatitudeInput" name="latitude" ></td>
+					</tr>
+					<tr>
+						<th>Longitude</th>
+						<td><input type="text" class="inputText" id="LongitudeInput" name="longitude" ></td>
+					</tr>
+				</tbody>
+			</table>
+            <script>
+                function findIndexBydeviceId(data, deviceid) {
+                    for (let i = 0; i < data.length; i++) {
+                        if (data[i].device_id == deviceid) {
+                            return i; 
+                        }
+                    }
+                    return -1; 
+                }
+                if (queryString) {
+                    const urlParams = new URLSearchParams(queryString);
+                    const deviceid = urlParams.get('device_id');
+                    console.log(deviceid);
+                        function populateTable(data) {
+                            const tbody = document.getElementById('deviceModiBody');
+                            const index = findIndexBydeviceId(data, deviceid)
+                            if (!tbody) {
+                                console.error('Error: tbody element not found');
+                                return;
+                            }
+
+                            const deviceIdInput = document.getElementById('deviceIdInput');
+                            const deviceNameInput = document.getElementById('DeviceNameInput');
+                            const systemIdInput = document.getElementById('SystemIdInput');
+                            const tableNameInput = document.getElementById('TableNameInput');
+                            const itemIdInput = document.getElementById('ItemIdInput');
+                            const deploymentTimeInput = document.getElementById('DeploymentTimeInput');
+                            const deploymentLocationInput = document.getElementById('DeploymentLocationInput');
+                            const latitudeInput = document.getElementById('LatitudeInput');
+                            const longitudeInput = document.getElementById('LongitudeInput');
+
+
+                            if (index !== -1) {
+                                const item = data[index];
+                           
+								deviceIdInput.value = item.device_id;
+								deviceNameInput.value = item.device_name;
+								systemIdInput.value = item.system_id;
+								tableNameInput.value = item.table_name;
+								
+								const isoString = item.deployment_time;
+								const date = new Date(isoString);
+
+								const year = date.getFullYear();
+								const month = (date.getMonth() + 1).toString().padStart(2, '0'); // getMonth()는 0부터 시작하므로 +1
+								const day = date.getDate().toString().padStart(2, '0');
+								const hours = date.getHours().toString().padStart(2, '0');
+								const minutes = date.getMinutes().toString().padStart(2, '0');
+								const seconds = date.getSeconds().toString().padStart(2, '0');
+								
+								deploymentTimeInput.value = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+								deploymentLocationInput.value = item.deployment_location;
+								latitudeInput.value = item.latitude;
+								longitudeInput.value = item.longitude;
+                            } else {
+                                console.log('해당 deviceId에 대한 데이터를 찾을 수 없습니다.');
+                            }
+
+                            if (!data || data.length === 0) {
+                                console.error('Error: No data available');
+                                return;
+                            }
+                        }
+                    fetch('/deviceList')
+                        .then(response => response.json())
+                        .then(data => populateTable(data))
+                        .catch(error => console.error('Error:', error));
+                } else {
+                    console.log('쿼리 문자열이 없습니다.');
+                }
+            </script>
+		</div>
+		</form>
+	</main>
+	
+</body></html>

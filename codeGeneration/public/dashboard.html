@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arduino Data Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Arduino Data Dashboard</h1>
+        <label for="deviceSelect">Select Device:</label>
+        <select id="deviceSelect">
+            <!-- Device options will be populated here -->
+        </select>
+        <button id="fetchDataBtn">Fetch Data</button>
+        <table>
+            <thead>
+                <tr id="dataHeaders">
+                    <!-- Data headers will be populated here -->
+                </tr>
+            </thead>
+            <tbody id="dataList">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const deviceSelectElement = document.getElementById('deviceSelect');
+        const dataListElement = document.getElementById('dataList');
+        const dataHeadersElement = document.getElementById('dataHeaders');
+        const fetchDataBtn = document.getElementById('fetchDataBtn');
+        let currentDeviceId = null; // 현재 선택된 디바이스 ID를 저장할 변수
+
+        async function fetchDevices() {
+            try {
+                const response = await fetch('/getDevices');
+                const devices = await response.json();
+                console.log(devices);
+
+                devices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.device_id;
+                    option.textContent = device.device_name;
+                    deviceSelectElement.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching devices:', error);
+            }
+        }
+
+        async function fetchData(deviceId) {
+            try {
+                const response = await fetch(`/collectedData/${deviceId}`);
+                const data = await response.json();
+                console.log(data);
+
+                dataHeadersElement.innerHTML = ''; // Clear existing headers
+                dataListElement.innerHTML = ''; // Clear existing data
+
+                // Set table headers
+                data.columns.forEach(column => {
+                    const th = document.createElement('th');
+                    th.textContent = column.Field;
+                    dataHeadersElement.appendChild(th);
+                });
+
+                // Populate table rows
+                data.rows.forEach(item => {
+                    const row = document.createElement('tr');
+                    Object.values(item).forEach(value => {
+                        const td = document.createElement('td');
+                        td.textContent = value;
+                        row.appendChild(td);
+                    });
+                    dataListElement.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        fetchDataBtn.addEventListener('click', () => {
+            const deviceId = deviceSelectElement.value;
+            currentDeviceId = deviceId; // 선택된 디바이스 ID를 저장
+            fetchData(deviceId);
+        });
+
+        // Fetch devices on page load
+        fetchDevices();
+
+        // Set interval to refresh data every 10 seconds
+        setInterval(() => {
+            if (currentDeviceId) {
+                fetchData(currentDeviceId);
+            }
+        }, 5000); // 10000ms = 10 seconds
+    </script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeUplift</title>
+    <!-- Prism.js 스타일 시트 추가 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism-okaidia.min.css">
+    <style>
+        /* Include the recommended CSS code here */
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        header {
+            background: #333;
+            color: #fff;
+            padding: 1rem 0;
+            text-align: center;
+        }
+
+        .CodeTop {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        thead {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .generateButton, .uploadButton {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        pre {
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto; /* Horizontal scroll bar only if necessary */
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 600px) {
+            table, th, td {
+                display: block;
+                width: 100%;
+            }
+
+            th, td {
+                padding: 10px;
+                text-align: right;
+            }
+
+            th {
+                background-color: transparent;
+                color: #333;
+            }
+
+            th::after {
+                content: ":";
+            }
+
+            td {
+                border-top: none;
+                border-bottom: none;
+                text-align: left;
+                padding-left: 50%;
+                position: relative;
+            }
+
+            td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 0;
+                width: 50%;
+                padding-left: 10px;
+                font-weight: bold;
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="CodeTop">CodeUplift</div>
+    </header>
+    <main>
+        <h1>CodeUplift</h1>
+        <div class="dataDisplay">
+            <h2>Used Data</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Group</th>
+                        <th>Key</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="dataBody">
+                    <!--스크립트를 통해 데이터 넣기-->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="generateButton">
+            <button id="generateCodeBtn">Generate Code</button>
+        </div>
+        <div class="generatedCode">
+            <h2>Generated Code</h2>
+            <pre><code id="generatedCode" class="language-none" rows="10" cols="145" readonly></code></pre>
+        </div>
+
+        <div class="uploadButton">
+            <button id="uploadCodeBtn">Upload Code</button>
+        </div>
+    </main>
+
+    <!-- Prism.js 스크립트 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const generateCodeBtn = document.getElementById('generateCodeBtn');
+            generateCodeBtn.addEventListener('click', async () => {
+                try {
+                    const generatedCode = await generateCode();
+                    document.getElementById('generatedCode').textContent = generatedCode;
+                    Prism.highlightAll(); // Prism.js로 코드 블록 하이라이팅 적용
+                } catch (error) {
+                    console.error('Error generating code:', error);
+                }
+            });
+
+            const uploadCodeBtn = document.getElementById('uploadCodeBtn');
+            uploadCodeBtn.addEventListener('click', async () => {
+                try {
+                    const code = document.getElementById('generatedCode').textContent;
+                    await uploadCode(code);
+                    alert('Code uploaded successfully!');
+                } catch (error) {
+                    console.error('Error uploading code:', error);
+                    alert('Failed to upload code.');
+                }
+            });
+
+            displayData();
+        });
+
+        function displayData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const itemId = urlParams.get('item_id'); // URL에서 item_id 가져오기
+
+            if (!itemId) {
+                console.error('Item_id is missing');
+                return;
+            }
+
+            fetch(`/getItemSpecificData?item_id=${itemId}`) // 서버에서 해당 item_id에 대한 데이터를 가져오는 엔드포인트로 요청
+                .then(response => response.json())
+                .then(data => {
+                    const dataBody = document.getElementById('dataBody');
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.md_group}</td>
+                            <td>${item.md_key}</td>
+                            <td>${item.md_value}</td>
+                        `;
+                        dataBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+
+        async function generateCode() {
+            try {
+                const arduinoPin = document.getElementById('arduinoPin').value;
+                const sensorManufacturer = document.getElementById('sensorManufacturer').value;
+                const dataRows = document.querySelectorAll('#dataBody tr');
+                const prompt = Array.from(dataRows).map(row => {
+                    const group = row.children[0].innerText;
+                    const key = row.children[1].innerText;
+                    const value = row.children[2].innerText;
+                    return `${group}: ${key}=${value}`;
+                }).join('\n');
+
+                const response = await fetch('/generateCode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        arduinoPin: arduinoPin,
+                        sensorManufacturer: sensorManufacturer
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate code');
+                }
+
+                const data = await response.json();
+                return data.code;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function uploadCode(code) {
+            try {
+                const response = await fetch('/uploadCode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to upload code');
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+    </script>
+</body>
+</html>

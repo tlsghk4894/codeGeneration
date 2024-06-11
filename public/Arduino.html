@@ -1,0 +1,69 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="main.css">
+	<script type="text/javascript">
+		function goBack() {
+			window.history.back();
+		}
+	</script>
+	<title>Device List</title>
+</head>
+
+<body>
+	<header>
+	<meta charset="EUC-KR">	
+        <div class="DeviceTop">
+	DSEM Device Registry - Arduino<br>
+	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+    <button class="MenuButton" type="button" onclick="location.href='Arduino.html'">Arduino</button>
+        </div>
+	</header>
+	<main>
+		<div class="SubTitleBar">
+			<h1>Arduino Device List</h1>
+		</div>
+		<div class="WideTable">
+			<div class="SubMenuBar">
+				<button type="button" onclick="location.href='arduinoRegister.html'">Register</button>
+			</div>
+			<table id="ArduinoTable">
+				<thead>
+					<tr>
+						<th>Arduino_ID</th>
+						<th>Arduino_Type</th>
+						<th>measurement_cycle</th>
+						<th>Power</th>
+						<th>Purpose</th>
+						<th>Detail</th>
+					</tr>
+				</thead>
+				<tbody>
+
+				</tbody>
+			</table>
+		</div>
+	</main>
+	<script>
+		function populateTable(data) {
+			var tableBody = document.querySelector('#ArduinoTable tbody');
+			
+				data.forEach(function(item) {
+					var row = document.createElement('tr');
+					row.innerHTML = '<td>' + item.arduinoId + '</td>' +
+									'<td>' + item.arduinoType + '</td>' +
+									'<td>' + item.measurement_cycle + '</td>' +
+									'<td>' + item.power+ '</td>' +
+									'<td>' + item.purpose+ '</td>' +
+									'<td><button type="button" onclick="location.href=\'ArduinoDetail.html?arduino_id=' + item.arduinoId + '\'">Detail</button></td>';
+					tableBody.appendChild(row);
+			});
+		}
+	
+		fetch('/arduinoList')
+			.then(response => response.json())
+			.then(data => populateTable(data))
+			.catch(error => console.error('Error:', error));
+	</script>
+</body></html>
