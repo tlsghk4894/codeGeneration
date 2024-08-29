@@ -3,14 +3,14 @@ const mysql = require('mysql');
 const app = express();
 const port = 10300;
 
+//DB 연결부
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '1234',
   database: 'DIPDeviceRegistry'
 });
-
-
+//파일 입출력 가능 여부
 connection.connect((err) => {
   if (err) {
     console.error('MySQL 연결 에러:', err);
@@ -21,10 +21,12 @@ connection.connect((err) => {
 
 app.use(express.static('public'));
 
+//디폴트로 index.html 켜지게
 app.get('/', (req, res) => {
   res.sendFile(__dirname, 'public','index.html');
 });
 
+//itemList라우터 포인트 
 app.get('/itemList', (req,res)=> {
    connection.query('SELECT item_id, registration_time, model_name, device_type, manufacturer, category FROM item_common', (err, results) => {
     if (err) {
@@ -42,6 +44,7 @@ app.get('/itemList', (req,res)=> {
   });
 });
 
+//device메인화면 라우터
 app.get('/deviceList', (req,res)=> {
    const query = `
    SELECT 
@@ -75,6 +78,7 @@ app.get('/deviceList', (req,res)=> {
  });
 });
 
+//itemDetail 화면 라우터
 app.get('/itemDetail', (req,res)=> {
   const itemId = req.query.item_id;
   const sql = 'SELECT item_id, registration_time, model_name, device_type, manufacturer, category FROM item_common WHERE item_id =?';
@@ -94,6 +98,7 @@ app.get('/itemDetail', (req,res)=> {
   });
 });
 
+//itemDetail 클릭시 기기 스펙 정보 가져오는 라우터
 app.get('/itemSpecificDetail', (req, res) => {
   const sql = 'SELECT * FROM item_specific ORDER BY sequence'; 
   connection.query(sql, (err, results) => {
@@ -112,6 +117,7 @@ app.get('/itemSpecificDetail', (req, res) => {
   });
 });
 
+//디바이스 디테일 화면 라우터 
 app.get('/deviceDetail', (req, res) => {
   const sql = 'SELECT * FROM devices';
   connection.query(sql, (err, results)=>{
@@ -131,31 +137,37 @@ app.get('/deviceDetail', (req, res) => {
 const multer = require('multer');
 const upload = multer();
 
-
-app.post('/confirmModi', upload.none(), (req, res) => {
+//데이터 수정 라우터, 
+app.post('/confirmModi', upload.none(), async (req, res) => {
   const formData = req.body;
   console.log('Received form data:', req.body);
   console.log(`${formData.manufacturer}`);
   const sqlCommon = `UPDATE item_common SET model_name = '${formData.model_name}', device_type = '${formData.device_type}', manufacturer = '${formData.manufacturer}', category = '${formData.category}' WHERE item_id = '${formData.item_id}'`;
 
+  //전송할때 폼 데이터에 따로 추가한 변수들 파싱해서 저장
   var tableBodyRows = parseInt(formData['tableBodyRows']);
   var rows = parseInt(formData['rows']);
-
   var deletedRows = JSON.parse(formData.deletedRows);
 
-  if (deletedRows.length > 0) {
+  try {
+    //삭제할 행이 있으면 작업 수행
+    if (deletedRows.length > 0) {
       const sqlDeleteRows = `DELETE FROM item_specific WHERE sequence IN (?)`;
-      connection.query(sqlDeleteRows, [deletedRows], (err, result) => {
+      //비동기 작업 : 삭제 쿼리를 실행
+      await new Promise((resolve, reject) => {
+        connection.query(sqlDeleteRows, [deletedRows], (err, result) => {
           if (err) {
-              console.error('Error executing SQL query for deleting rows:', err);
-              res.status(500).json({ error: '데이터베이스 에러' });
-              return;
+            console.error('Error executing SQL query for deleting rows:', err);
+            return reject('데이터베이스 에러');
           }
           console.log(`${result.affectedRows} rows deleted successfully from item_specific table`);
+          resolve(); // 작업이 성공적으로 완료되면 resolve 함수 호출
+        });
       });
-  }
+    }
 
-  for (let i = 0; i < tableBodyRows; i++) {
+    //업데이트 수행하는 반복문 (수정 반복문) 기존 행 업데이트
+    for (let i = 0; i < tableBodyRows; i++) {
       var seq = formData[`Dseq${i}`];
       var group = formData[`Dgroup${i}`];
       var key = formData[`Dkey${i}`];
@@ -164,59 +176,72 @@ app.post('/confirmModi', upload.none(), (req, res) => {
       console.log('key: ' + key);
       console.log('value: ' + value);
       console.log(seq);
-      (function (i, seq, group, key, value) {
-          var sqlSpecific = `UPDATE item_specific SET md_group = '${group}', md_key = '${key}', md_value = '${value}' WHERE item_id = '${formData.item_id}' AND sequence = '${seq}'`;
-          connection.query(sqlSpecific, (err, resultSpecific) => {
-              console.log(sqlSpecific);
-              if (err) {
-                  console.error('Error executing SQL query for item_specific:', err);
-                  res.status(500).json({ error: '데이터베이스 에러' });
-                  return;
-              }
-              console.log('Changes saved to item_specific table');
-              if (i === tableBodyRows - 1) {
-                  connection.query(sqlCommon, (err, resultCommon) => {
-                      console.log(sqlCommon);
-                      if (err) {
-                          console.error('Error executing SQL query for item_common:', err);
-                          res.status(500).json({ error: '데이터베이스 에러' });
-                          return;
-                      }
-                      console.log('Changes saved to item_common table');
-                      res.status(200).json({ message: '수정이 완료되었습니다.', item_id: formData.item_id });
-                  });
-              }
-          });
-      })(i, seq, group, key, value);
-  }
 
-  for (let i = tableBodyRows; i < rows; i++) {
+      var sqlSpecific = `UPDATE item_specific SET md_group = '${group}', md_key = '${key}', md_value = '${value}' WHERE item_id = '${formData.item_id}' AND sequence = '${seq}'`;
+      //비동기로 업데이트 쿼리 실행
+      await new Promise((resolve, reject) => {
+        connection.query(sqlSpecific, (err, resultSpecific) => {
+          console.log(sqlSpecific);
+          if (err) {
+            console.error('Error executing SQL query for item_specific:', err);
+            return reject('데이터베이스 에러');
+          }
+          console.log('Changes saved to item_specific table');
+          resolve();
+        });
+      });
+    }
+
+    //새로운 행을 item_specific 테이블에 Insert
+    for (let i = tableBodyRows; i < rows; i++) {
       var group = formData[`Dgroup${i}`];
       var key = formData[`Dkey${i}`];
       var value = formData[`Dvalue${i}`];
       var seq = i + 1;
+
       var checkDuplicateQuery = `SELECT * FROM item_specific WHERE item_id = '${formData.item_id}' AND md_group = '${group}' AND md_key = '${key}'`;
-      connection.query(checkDuplicateQuery, (err, rows) => {
+      //중복 항목 확인을 위한 쿼리
+      await new Promise((resolve, reject) => {
+        //중복 항목이 없으면 return값이 0으로 반환됨
+        connection.query(checkDuplicateQuery, (err, rows) => {
           if (err) {
-              console.error('Error checking for duplicates:', err);
-              res.status(500).json({ error: '데이터베이스 에러' });
-              return;
+            console.error('Error checking for duplicates:', err);
+            return reject('데이터베이스 에러');
           }
+          //중복 항목이 없다면 INSERT 실행
           if (rows.length === 0) {
-              var sqlInsert = `INSERT INTO item_specific (item_id, md_group, md_key, md_value, sequence) VALUES ('${formData.item_id}', '${group}', '${key}', '${value}', '${seq}')`;
-              connection.query(sqlInsert, (err, resultInsert) => {
-                  console.log(sqlInsert);
-                  if (err) {
-                      console.error('Error executing SQL query for inserting into item_specific:', err);
-                      res.status(500).json({ error: '데이터베이스 에러' });
-                      return;
-                  }
-                  console.log('New row inserted into item_specific table');
-              });
+            var sqlInsert = `INSERT INTO item_specific (item_id, md_group, md_key, md_value, sequence) VALUES ('${formData.item_id}', '${group}', '${key}', '${value}', '${seq}')`;
+            connection.query(sqlInsert, (err, resultInsert) => {
+              console.log(sqlInsert);
+              if (err) {
+                console.error('Error executing SQL query for inserting into item_specific:', err);
+                return reject('데이터베이스 에러');
+              }
+              console.log('New row inserted into item_specific table');
+              resolve();
+            });
           } else {
-              console.log('Duplicate entry found, skipping insertion');
+            console.log('Duplicate entry found, skipping insertion');
+            resolve();
           }
+        });
       });
+    }
+
+    connection.query(sqlCommon, (err, resultCommon) => {
+      console.log(sqlCommon);
+      if (err) {
+        console.error('Error executing SQL query for item_common:', err);
+        res.status(500).json({ error: '데이터베이스 에러' });
+        return;
+      }
+      console.log('Changes saved to item_common table');
+      res.status(200).json({ message: '수정이 완료되었습니다.', item_id: formData.item_id });
+    });
+
+  } catch (error) {
+    console.error('Error executing SQL query:', error);
+    res.status(500).json({ error: '데이터베이스 에러' });
   }
 });
 
@@ -449,192 +474,6 @@ app.get('/getItemSpecificData', (req, res) => {
       res.json(results);
   });
 });
-// const dotenv = require('dotenv'); // dotenv 패키지를 사용하여 환경 변수 로드
-// dotenv.config();
-// const axios = require('axios');
-
-// // 환경 변수에서 API 키 가져오기
-// const OPENAI_API_KEY = process.env.gptKey; 
-// // API 키를 클라이언트로 전달하는 엔드포인트
-// app.get('/api/gpt-key', (req, res) => {
-//   res.json({ gptApiKey: OPENAI_API_KEY });
-// });
-// OpenAI API 호출 함수
-// async function generateCodeWithGPT(keywords) {
-//   const api_key = OPENAI_API_KEY; 
-//   const url = 'https://api.openai.com/v1/chat/completions'; 
-
-//   const messages = [
-//       { role: 'system', content: 'You are an Arduino expert. answer me arduino code and Write the Arduino code to run right away' },
-//       { role: 'system', content: 'if library has value, must use library. but value is "none" just coding' },
-//       { role: 'user', content: `${keywords}` },
-//       { role: 'user', content: `You are an Arduino expert. Please write Arduino code that reads a sensor value"
-//         The code should include the following:
-//         1. Read the sensor value from Used Data.
-//         2. Convert the sensor value to ppm using a linear mapping (e.g., sensorValue / 1024.0 * 1000.0).
-//         3. Print the sensor data using Serial.print() and Serial.println().
-//         4. Include a delay 5second between readings.
-//         5. Send only the value to be sent .` },
-//       { role: 'user', content: `The code currently being written will be executed through the Arduino CLI` },
-//       { role: 'user', content: `If you use the library, you have to fill out the import statement correctly` }, 
-//     ];
-
-//   const data = {
-//       model: 'gpt-3.5-turbo',
-//       temperature: 0.5,
-//       n: 1,
-//       messages: messages,
-//   };
-//   console.log("data는",data)
-//   try {
-//       const response = await axios.post(url, data, {
-//           headers: {
-//               'Authorization': `Bearer ${api_key}`,
-//               'Content-Type': 'application/json',
-//           },
-//       });
-//       console.log(response.data)
-//       return response.data.choices[0].message.content;
-//   } catch (error) {
-//       console.error('Error chatting with GPT:', error);
-//       throw error;
-//   }
-// }
-
-// // 라우트 핸들러
-// app.post('/generateCode', async (req, res) => {
-//   const arduinoDetails = req.body;
-//   console.log(arduinoDetails);
-//   try {
-//       const generatedCode = await generateCodeWithGPT(JSON.stringify(arduinoDetails));
-//       res.status(200).json({ code: generatedCode });
-//   } catch (error) {
-//       console.error('Failed to generate code:', error);
-//       res.status(500).json({ error: 'Failed to generate code' });
-//   }
-// });
-
-
-// function parseGeneratedText(text) {
-//   const codeMatch = text.match(/```cpp([\s\S]*?)```/);
-//   const code = codeMatch ? codeMatch[1].trim() : '';
-//   return { code };
-// }
-
-
-
-
-// let compileResult = null;
-// client.on('message', (topic, message) => {
-//   if (topic === 'compile/result') {
-//       compileResult = JSON.parse(message.toString());
-//       console.log('Compile result received:', compileResult);  // 결과 로그 출력
-//   }
-// });
-
-// // 코드를 컴파일하는 엔드포인트
-// app.post('/compileCode', (req, res) => {
-//   const { code } = req.body;
-//   if (!code) {
-//       return res.status(400).json({ error: 'No code provided' });
-//   }
-
-//   // MQTT 메시지 형식 지정
-//   const mqttMessage = JSON.stringify({ code });
-
-//   // 결과를 초기화
-//   compileResult = null;
-
-//   try {
-//       // MQTT를 통해 코드를 라즈베리파이로 전송하여 컴파일
-//       client.publish('compile/code', mqttMessage, (err) => {
-//           if (err) {
-//               console.error('Failed to send code for compilation via MQTT:', err);
-//               return res.status(500).json({ error: 'Failed to send code for compilation via MQTT', details: err.message });
-//           }
-
-//           // 일정 시간 동안 결과를 기다림 (예: 5초)
-//           setTimeout(() => {
-//               if (compileResult) {
-//                   if (compileResult.success) {
-//                       res.status(200).json({ message: 'Code compiled successfully', output: compileResult.output });
-//                   } else {
-//                       res.status(500).json({ error: 'Compilation failed', details: compileResult.output });
-//                   }
-//               } else {
-//                   res.status(500).json({ error: 'No compilation result received' });
-//               }
-//           }, 5000); // 5초 대기 (필요에 따라 조정)
-//       });
-//   } catch (err) {
-//       console.error('Error during compilation:', err);
-//       res.status(500).json({ error: 'Internal Server Error', details: err.message });
-//   }
-// });
-
-
-
-// app.post('/uploadCode', (req, res) => {
-//   let code, sensor_model;
-//   code = req.body.code;
-//   sensor_model = req.body.sensor_model;
-//   console.log('Received Code:', code); // 디버깅 출력
-//   console.log('Received Sensor Model:', sensor_model); // 디버깅 출력
-
-//   if (!code) {
-//     return res.status(400).json({ error: 'No code provided' });
-//   }
-//   if (!sensor_model) {
-//     return res.status(400).json({ error: 'No sensor_model provided' });
-//   }
-
-//   // 텍스트를 파싱하여 필요한 정보 추출
-//   const parsedData = {code,sensor_model};
-//   console.log('Parsed Data:', parsedData); // 디버깅 출력
-
-//   // MQTT 메시지 형식 지정
-//   const mqttMessage = JSON.stringify(parsedData);
-
-//   // MQTT를 통해 코드를 라즈베리파이로 전송
-//   client.publish('upload/code', mqttMessage, (err) => {
-//     if (err) {
-//       console.error('Failed to send code via MQTT:', err); // 디버깅 출력
-//       return res.status(500).json({ error: 'Failed to send code via MQTT', details: err.message });
-//     }
-
-//     res.status(200).json({ message: 'Code sent to Raspberry Pi via MQTT' });
-//   });
-// });
-
-// const measurementDbConnection = mysql.createConnection({
-//   host: 'localhost',
-//   user: 'root',
-//   password: '1234',
-//   database: 'DIPMeasurement' 
-// });
-// 데이터 수신을 위한 엔드포인트
-
-// const mqtt = require('mqtt');
-// const MQTT_BROKER_URL = 'mqtt://192.168.0.207'; // 라즈베리파이의 IP 주소를 여기에 입력하세요
-// const client = mqtt.connect(MQTT_BROKER_URL);
-
-// client.on('connect', () => {
-//   console.log('Connected to MQTT broker');
-//   client.subscribe('compile/result');
-// });
-
-// app.post('/api/data', (req, res) => {
-//   const { timestamp, ppm } = req.body;
-
-//   const sql = `INSERT INTO device0011 (timestamp, ppm) VALUES (?, ?)`;
-//   measurementDbConnection.query(sql, [timestamp, ppm], (err, result) => {
-//       if (err) {
-//           res.status(500).send('Database insert failed');
-//           throw err;
-//       }
-//       res.send('Data inserted successfully');
-//   });
-// });
 
 app.get('/arduinoList', (req,res)=> {
   const query = `
@@ -735,7 +574,43 @@ app.post('/registerPin', (req, res) => {
   }
 
 });
+const mqtt = require('mqtt'); // MQTT 클라이언트 추가
 
+// MQTT 브로커 설정 (로컬 브로커 사용 시 'mqtt://localhost' 사용)
+const mqttClient = mqtt.connect('mqtt://203.234.62.109:1883');
+
+const cors = require('cors');
+app.use(cors()); // 모든 도메인에서의 요청을 허용
+
+
+mqttClient.on('connect', () => {
+  console.log('MQTT Client Connected');
+  // 특정 토픽을 구독합니다.
+  mqttClient.subscribe('test/topic', (err) => {
+    if (err) {
+      console.error('MQTT Subscription Error:', err);
+    } else {
+      console.log('Subscribed to test/topic');
+    }
+  });
+});
+
+mqttClient.on('message', (topic, message) => {
+  // 수신한 메시지를 처리합니다.
+  console.log(`Received message on ${topic}: ${message.toString()}`);
+});
+
+// MQTT 메시지 발행을 위한 엔드포인트 예제
+app.post('/send-mqtt', (req, res) => {
+  const { topic, message } = req.body;
+  mqttClient.publish(topic, message, (err) => {
+    if (err) {
+      res.status(500).send('Failed to publish MQTT message');
+    } else {
+      res.send('MQTT message sent successfully');
+    }
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server is listening at http://localhost:${port}`);

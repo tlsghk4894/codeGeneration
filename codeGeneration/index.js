@@ -5,7 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const mqtt = require('mqtt');
 const dotenv = require('dotenv');
-const mysql = require('mysql2/promise');
+const mysql = require('mysql');
 
 dotenv.config();
 
@@ -15,7 +15,7 @@ const MQTT_BROKER_URL = 'mqtt://192.168.0.207'; // 라즈베리파이의 IP 주�
 const client = mqtt.connect(MQTT_BROKER_URL);
 const OPENAI_API_KEY = process.env.gptKey;
 
-// MySQL 연결 설정
+// MySQL 연결 설정 - 데이터 수집 DB
 const dbConfig = {
     host: 'localhost',  // MySQL 서버 호스트
     user: 'root',       // MySQL 사용자
@@ -55,10 +55,10 @@ async function saveDataToDatabase(data) {
         const connection = await mysql.createConnection(dbConfig);
         const tableName = `device${currentDeviceId.toString().padStart(4, '0')}`;
 
-        // sensor_data와 sensor_keys를 이용하여 동적으로 컬럼과 값을 설정
+        // sensor_data와 sensor_keys를 이용하여 동적으로 컬럼과 값을 설정 ...은 스프레드 문법으로 객체를 펼치는 데 사용됨 (1차원으로 만든다고 생각)
         const columns = ['timestamp', ...Object.keys(data.sensors)];
         const values = [data.timestamp, ...Object.values(data.sensors)];
-
+        //펼쳐진 객체를 ? 문자를 이용하여 값의 자리 표시자를 정의함 즉, SQL에서 값이 삽입될 위치를 나타내게됨 [?,?,?]이라고 생각
         const placeholders = columns.map(() => '?').join(', ');
 
         const query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
@@ -68,6 +68,43 @@ async function saveDataToDatabase(data) {
         console.error('Error saving data to database:', error);
     }
 }
+// MySQL 연결 설정
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '1234',
+    database: 'dipdeviceregistry'
+  });
+
+connection.connect((err) => {
+    if (err) {
+        console.error('MySQL 연결 오류:', err);
+        return;
+    }
+    console.log('MySQL 연결 성공');
+});
+app.get('/itemSpecificDetail', (req, res) => {
+    const itemId = req.query.item_id; // 클라이언트에서 item_id 받기
+  
+    // 데이터베이스 쿼리 실행
+    const sql = 'SELECT * FROM item_specific WHERE item_id = ?';
+    connection.query(sql, [itemId], (err, results) => {
+      if (err) {
+        console.error('쿼리 실행 에러:', err);
+        res.status(500).json({ error: '데이터베이스 에러' });
+        return;
+      }
+  
+      if (results.length === 0) {
+        res.status(404).json({ message: '아이템 정보가 없습니다.' });
+        return;
+      }
+  
+      res.json(results);
+    });
+  });
+
+
 
 // 데이터 수신 엔드포인트
 app.post('/api/data', async (req, res) => {
@@ -80,67 +117,46 @@ app.post('/api/data', async (req, res) => {
     }
 });
 
+const fs = require('fs');
 
-// OpenAI API 호출 함수
+
 async function generateCodeWithGPT(deviceData) {
     const api_key = OPENAI_API_KEY;
     const url = 'https://api.openai.com/v1/chat/completions';
 
+    // 메타데이터 파싱
+    const controlCommands = deviceData.itemSpecificDetails.find(detail => detail.md_key === 'control_commands')?.md_value.split(',') || [];
+
+    // 하나의 파일에 모든 명령어에 대한 코드를 생성하도록 messages 준비
     const messages = [
-        { 
-            role: 'user', 
+        {
+            role: 'user',
             content: `Generate Arduino code for the following device data:
             {
-                "sensors": ${JSON.stringify(deviceData.sensors)},
+                "device_id": ${deviceData.device_id},
+                "device_name": "${deviceData.device_name}",
                 "model_name": "${deviceData.model_name}",
                 "purpose": "${deviceData.purpose}",
-                "pins": ${JSON.stringify(deviceData.pins)},
-                "device_name": "${deviceData.device_name}"
-            }`
-        },
-        { role: 'user', content: `You are an Arduino expert. Please write Arduino code that reads from the specified sensors. The code should include the following:
-            1. Properly initialize and configure the sensor(s) based on the model_name.
-            2. Continuously read data from the sensor(s).
-            3. Print the sensor data using Serial.print() and Serial.println().
-            4. Include a delay of 5 seconds between readings.
-            5. Ensure the code can be compiled and run using the Arduino CLI.
-            6. If a library is required for the sensor, include the appropriate import statement.
-            7. The purpose of this device is: ${deviceData.purpose}.
-            8. The sensor data should be sent to a Raspberry Pi for further processing.
-            9. Use the following example code as a reference for gas sensors with ppm units:
-            
-            #include <Wire.h> // Include the Wire library for I2C communication if needed
-
-            const int sensorPin = A0; // Define the analog pin for sensor reading
-            const int delayTime = 5000; // Delay time in milliseconds
-
-            void setup() {
-              Serial.begin(9600); // Initialize serial communication
-              pinMode(sensorPin, INPUT); // Set sensor pin as input
-              // Additional sensor initialization based on model_name if needed
+                "actuator_pins": ${JSON.stringify(deviceData.Actuator_Pins)},
+                "actuator_type": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'actuator_type')?.md_value}",
+                "control_cycle": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'control_cycle')?.md_value}",
+                "power": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'power')?.md_value}",
+                "initial_color": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'inital_color')?.md_value}",
+                "max_brightness": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'max_brightness')?.md_value}",
+                "red_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'red_pin')?.md_value}",
+                "green_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'green_pin')?.md_value}",
+                "blue_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'blue_pin')?.md_value}"
             }
-
-            void loop() {
-              int sensorValue = analogRead(sensorPin); // Read sensor value
-              float ppmValue = calculatePPM(sensorValue); // Calculate PPM value
-
-              Serial.print("Carbon Monoxide (CO) PPM: ");
-              Serial.println(ppmValue); // Print sensor data
-
-              // Send sensor data to Raspberry Pi for further processing
-              // You can implement communication protocols like I2C, Serial, etc. here
-
-              delay(delayTime); // Delay before next reading
-            }
-
-            float calculatePPM(int sensorValue) {
-              // Add your custom calculation based on the sensor's output
-              // This function can vary depending on the sensor model
-              // Example: conversion formula from sensor value to PPM
-              float ppm = sensorValue * 0.1; // Sample conversion for illustration
-              return ppm;
-            }
-            ` }
+            Please create a comprehensive Arduino program that can handle the following commands: ${controlCommands.join(', ')}.
+            For each command:
+            - "OFF": Turns off the RGB LED.
+            - "ON": Turns on the RGB LED to the initial color.
+            - "SET_COLOR_RED": Sets the RGB LED to red.
+            - "SET_COLOR_GREEN": Sets the RGB LED to green.
+            - "SET_COLOR_BLUE": Sets the RGB LED to blue.
+            Ensure the code initializes the RGB LED pins as outputs, reads commands from serial input, and sets the LED color accordingly. Include error handling for unsupported commands or incorrect message formats. Provide **only** the Arduino code. **Do not include any language tags, explanations, or comments.**
+            `
+        }
     ];
 
     const data = {
@@ -157,28 +173,55 @@ async function generateCodeWithGPT(deviceData) {
                 'Content-Type': 'application/json',
             },
         });
-        return response.data.choices[0].message.content;
+
+        const code = response.data.choices[0].message.content;
+
+        // // device_name을 파일명으로 사용하여 모든 명령어를 하나의 파일로 저장
+        // const fileName = `${deviceData.device_name.replace(/\s+/g, '_')}.ino`; // 파일명에 공백을 언더스코어로 대체
+        // fs.writeFileSync(`./${fileName}`, code, 'utf8');
+        // console.log(`${fileName} 파일이 생성되었습니다.`);
+        // MQTT 클라이언트를 사용하여 파일 내용을 전송
+        const mqttClient = mqtt.connect('mqtt://203.234.62.109:1883');
+        mqttClient.on('connect', () => {
+            console.log('MQTT 클라이언트가 연결되었습니다.');
+
+            // device_name을 사용하여 토픽 정의
+            const topic = `${deviceData.device_name.replace(/\s+/g, '_')}/upload`; // 공백을 언더스코어로 대체
+            mqttClient.publish(topic, code, (err) => {
+                if (err) {
+                    console.error('MQTT 메시지 전송 실패:', err);
+                } else {
+                    console.log(`MQTT 메시지가 ${topic} 토픽으로 전송되었습니다.`);
+                }
+                mqttClient.end();
+            });
+        });
     } catch (error) {
-        console.error('Error chatting with GPT:', error);
-        throw error;
+        console.error('Error generating code:', error);
     }
 }
+
 
 // 엔드포인트: 디바이스 목록 가져오기
 app.get('/getDevices', async (req, res) => {
     try {
+        //디바이스 레지스트리에서 디바이스 목록 가져오기
         const response = await axios.get('http://203.234.62.143:10300/deviceList');
         const devices = response.data;
-
+        console.log('devices:',devices);
+        //System_id를 통해 필터링 진행 (Arduino에 관련된 값만 가져오기 위해)
         const arduinoDevices = devices.filter(device => device.system_id.includes('Arduino'));
 
+        //필터링 된 기기들의 정보를 가져오기 위한 반복문
         for (let device of arduinoDevices) {
             const itemSpecificDetailResponse = await axios.get(`http://203.234.62.143:10300/itemSpecificDetail?item_id=${device.item_id}`);
             const itemSpecificDetails = itemSpecificDetailResponse.data.filter(detail => detail.item_id === device.item_id);
-
+            
+            //코드 생성에 필요하다고 생각되는 것들을 리스트업
             device.sensors = itemSpecificDetails.filter(detail => detail.md_key === 'sensor').map(detail => detail.md_value);
             device.purpose = itemSpecificDetails.find(detail => detail.md_key === 'purpose')?.md_value || 'N/A';
-            device.pins = itemSpecificDetails.filter(detail => detail.md_key === 'pin').map(detail => detail.md_value);
+            // device.Sensor_Pins = itemSpecificDetails.filter(detail => detail.md_key === 'sensor_pin').map(detail => detail.md_value);
+            device.Actuator_Pins = itemSpecificDetails.filter(detail => detail.md_key.includes('pin')).map(detail => detail.md_value);
         }
 
         res.json(arduinoDevices);
@@ -191,6 +234,7 @@ app.get('/getDevices', async (req, res) => {
 // 엔드포인트: 아두이노 코드 생성
 app.post('/generateCode', async (req, res) => {
     const deviceData = req.body;
+    console.log("deviceData: ",deviceData);
     try {
         const generatedCode = await generateCodeWithGPT(deviceData);
         recentGeneratedCode[deviceData.device_id] = generatedCode; // 최근 생성된 코드를 저장

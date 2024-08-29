@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Monitoring and Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 300px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Device Control Panel</h2>
+        <button class="btn" onclick="sendCommand('ON')">Turn ON LED</button>
+        <button class="btn" onclick="sendCommand('OFF')">Turn OFF LED</button>
+        <button class="btn" onclick="sendCommand('SET_COLOR 255 0 0')">Set Color: Red</button>
+        <button class="btn" onclick="sendCommand('SET_COLOR 0 255 0')">Set Color: Green</button>
+        <button class="btn" onclick="sendCommand('SET_COLOR 0 0 255')">Set Color: Blue</button>
+
+        <div class="status">
+            <p><strong>Status:</strong> <span id="statusText">Disconnected</span></p>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        let writer;
+        let isConnected = false;
+
+        async function connectToDevice() {
+            if ("serial" in navigator) {
+                try {
+                    port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 9600 });
+                    writer = port.writable.getWriter();
+                    isConnected = true;
+                    document.getElementById('statusText').innerText = 'Connected';
+                } catch (error) {
+                    console.error('Error connecting to device:', error);
+                }
+            } else {
+                alert('Web Serial API not supported.');
+            }
+        }
+
+        async function sendCommand(command) {
+            if (!isConnected) {
+                await connectToDevice();
+            }
+
+            if (isConnected) {
+                const encoder = new TextEncoder();
+                await writer.write(encoder.encode(command + '\n'));
+            }
+        }
+    </script>
+</body>
+</html>

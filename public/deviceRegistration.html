@@ -1,21 +1,22 @@
-<html><head>
+<html>
+<head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<link rel="stylesheet" type="text/css" href="main.css">
 	
 	<script type="text/javascript">
-	    function goBack(){
+		function goBack(){
 			window.history.back();
 		}
-	    
+		
 		function check() {
-			if (devform.lat.value!="" && isNaN(devform.lat.value)) {
+			if (devform.lat.value != "" && isNaN(devform.lat.value)) {
 				alert("Input numeric value in latitude");
 				devform.lat.focus();
 				return false;
 			}
 
-			if (devform.lon.value!="" && isNaN(devform.lon.value)) {
-				alert("Input numeric value in latitude");
+			if (devform.lon.value != "" && isNaN(devform.lon.value)) {
+				alert("Input numeric value in longitude");
 				devform.lon.focus();
 				return false;
 			}
@@ -55,6 +56,39 @@
 				console.error('There has been a problem with your fetch operation:', error);
 			});
 		}
+
+		// itemList 데이터를 가져와 <select> 요소에 옵션으로 추가하는 함수
+		function populateItemOptions() {
+			fetch('/itemList')
+				.then(response => response.json())
+				.then(data => {
+					const itemSelect = document.querySelector('select[name="item_id"]');
+					data.forEach(item => {
+						const option = document.createElement('option');
+						option.value = item.item_id;
+						option.textContent = `(${item.item_id}) ${item.model_name}`;
+						itemSelect.appendChild(option);
+					});
+				})
+				.catch(error => console.error('Error fetching item list:', error));
+		}
+
+		window.onload = function () {
+			var currentDateTime = getCurrentDateTime();
+			document.querySelector('input[name="deployment_time"]').value = currentDateTime;
+			populateItemOptions(); // 페이지 로드 시 아이템 옵션을 채움
+		};
+
+		function getCurrentDateTime() {
+			var now = new Date();
+			var year = now.getFullYear();
+			var month = (now.getMonth() + 1).toString().padStart(2, '0');
+			var day = now.getDate().toString().padStart(2, '0');
+			var hours = now.getHours().toString().padStart(2, '0');
+			var minutes = now.getMinutes().toString().padStart(2, '0');
+			var seconds = now.getSeconds().toString().padStart(2, '0');
+			return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+		}
 	</script>
 	
     <title>Device Registration</title>
@@ -62,21 +96,18 @@
 
 <body>
 	<header>
-
 	<meta charset="EUC-KR">	
 	<link rel="stylesheet" type="text/css" href="main.css">
 
-
-<div class="DeviceTop">
-	DSEM Device Registry - Device Management<br>
-	<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
-	<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
-	<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
-    <button class="MenuButton" type="button" onclick="location.href='http://localhost:3000/'">Arduino</button>
-</div>
-
-
+	<div class="DeviceTop">
+		DSEM Device Registry - Device Management<br>
+		<button class="MenuButton" type="button" onclick="location.href='index.html'">Main</button>
+		<button class="MenuButton" type="button" onclick="location.href='itemList.html'">Item</button>
+		<button class="MenuButton" type="button" onclick="location.href='deviceList.html'">Device</button>
+		<button class="MenuButton" type="button" onclick="location.href='http://203.234.62.143:3000/'">Arduino</button>
+	</div>
 	</header>
+
 	<main>
 		<div class="SubTitleBar">
 			<h1>Register New Device</h1>
@@ -99,72 +130,30 @@
 						<th>Device name</th>
 						<td><input type="text" class="inputText" name="device_name" placeholder="Input"></td>
 					</tr>
-					
 					<tr>
 						<th>System id</th>
 						<td><input type="text" class="inputText" name="system_id" placeholder="Input"></td>
 					</tr>
-					
 					<tr>
 						<th>Item id</th>
 						<td>
 							<select class="inputText" name="item_id">
-
-								<option value="1">(1)DIPEIC01</option>
-
-								<option value="2">(2)DIPEIC02</option>
-
-								<option value="3">(3)DSEM Environmental Information Collector Type 02</option>
-
-								<option value="5">(5)DSEM Controller 01</option>
-
-								<option value="6">(6)Switchbot01</option>
-
-								<option value="7">(7)Door Detector</option>
-
-								<option value="8">(8)DSEM Air Purifier</option>
-
-								<option value="9">(9)My oneM2M deviceLight</option>
-
-								<option value="11">(11)deviceAirPurifier</option>
-								
-								<option value="13">(13)MQ-7</option>
+								<!-- 옵션 항목은 populateItemOptions 함수로 동적 생성 -->
 							</select>
 						</td>
 					</tr>
-					
 					<tr>
 						<th>Deployment time</th>
 						<td><input type="text" class="inputText" name="deployment_time" placeholder="yyyy-MM-dd HH:mm:ss"></td>
-
-						<script>
-							function getCurrentDateTime() {
-								var now = new Date();
-								var year = now.getFullYear();
-								var month = (now.getMonth() + 1).toString().padStart(2, '0');
-								var day = now.getDate().toString().padStart(2, '0');
-								var hours = now.getHours().toString().padStart(2, '0');
-								var minutes = now.getMinutes().toString().padStart(2, '0');
-								var seconds = now.getSeconds().toString().padStart(2, '0');
-								return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
-							}
-							window.onload = function () {
-								var currentDateTime = getCurrentDateTime();
-								document.querySelector('input[name="deployment_time"]').value = currentDateTime;
-							};
-						</script>
 					</tr>
-					
 					<tr>
 						<th>Deployment location</th>
 						<td><input type="text" class="inputText" name="deployment_location" placeholder="Input"></td>
 					</tr>
-					
 					<tr>
 						<th>Latitude</th>
 						<td><input type="text" class="inputText" name="lat" placeholder="Input GPS position"></td>
 					</tr>
-					
 					<tr>
 						<th>Longitude</th>
 						<td><input type="text" class="inputText" name="lon" placeholder="Input GPS position"></td>
@@ -172,8 +161,7 @@
 				</tbody>
 			</table>
 		</div>
-	</form>
+		</form>
 	</main>
-
-
-</body></html>
+</body>
+</html>

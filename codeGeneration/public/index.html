@@ -30,7 +30,7 @@
             color: #f8f8f2;
             padding: 20px;
             border-radius: 5px;
-            overflow-x: auto; /* 가로 스크롤이 필요한 경우에만 스크롤바 표시 */
+            overflow-x: auto; 
         }
         .status-icon {
             font-size: 24px;
@@ -43,7 +43,7 @@
             color: red;
         }
         .compileButton, .uploadButton {
-            display: none; /* 초기 상태에서 숨기기 */
+            display: none; 
         }
     </style>
 </head>
@@ -59,20 +59,37 @@
                     <th>System ID</th>
                     <th>Item ID</th>
                     <th>Model Name</th>
-                    <th>Sensors</th>
                     <th>Purpose</th>
+                    <!-- <th>Sensor_Pins</th> -->
                     <th>Pins</th>
                     <th>Select</th>
                 </tr>
             </thead>
             <tbody id="deviceList">
-                <!-- Devices will be populated here -->
+                <!-- 테이블 정보는 디바이스 레지스트리에서 Arduino에 해당하는 것만 가져옴 -->
             </tbody>
         </table>
+
+        <div class="device-details" id="deviceDetails">
+            <h2>Specific Information</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Group</th>
+                        <th>Key</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="specificInfo">
+                    <!-- Specific information will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
         <h2>Generate Arduino Code</h2>
         <label for="deviceSelect">Select Device:</label>
         <select id="deviceSelect">
-            <!-- Device options will be populated here -->
+
         </select>
         <button id="generateCodeBtn">Generate Code</button>
         <div class="generatedCode">
@@ -88,11 +105,13 @@
             <button id="uploadCodeBtn">Upload Code</button>
         </div>
     </div>
-    
+
+    <!--코드 생성하는 부분 스타일 적용-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-c.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-cpp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-arduino.min.js"></script>
+
     <script>
         const deviceListElement = document.getElementById('deviceList');
         const deviceSelectElement = document.getElementById('deviceSelect');
@@ -105,16 +124,15 @@
         const generateCodeBtn = document.getElementById('generateCodeBtn');
         let sensorModel = '';
         let deviceId = '';
-
-        let devices = []; // Add a global variable to store the devices
+        let sensors = '';
+        let devices = []; 
 
         generateCodeBtn.addEventListener('click', async () => {
             try {
                 const generatedCode = await generateCode();
-                console.log('Generated Code:', generatedCode); // 디버깅 출력
+                console.log('Generated Code:', generatedCode); 
                 generatedCodeElement.textContent = generatedCode;
-                Prism.highlightAll(); // Prism.js로 코드 블록 하이라이팅 적용
-                console.log('compileButtonDiv:', compileButtonDiv); // 디버깅 출력
+                console.log('compileButtonDiv:', compileButtonDiv); 
                 compileButtonDiv.style.display = 'block'; // 코드가 생성되면 컴파일 버튼을 표시
                 compileStatusIcon.className = ''; // 컴파일 상태 초기화
                 compileStatusIcon.textContent = ''; // 컴파일 상태 아이콘 초기화
@@ -127,24 +145,24 @@
         compileButtonElement.addEventListener('click', async () => {
             try {
                 const codeText = generatedCodeElement.textContent;
-                console.log('Code Text for Compilation:', codeText); // 디버깅 출력
+                console.log('Code Text for Compilation:', codeText); 
                 const parsedCode = parseGeneratedText(codeText).code;
-                console.log('Parsed Code for Compilation:', parsedCode); // 디버깅 출력
+                console.log('Parsed Code for Compilation:', parsedCode);
                 const result = await compileCode(parsedCode);
-                console.log('Compile result received:', result); // 디버깅 출력
+                console.log('Compile result received:', result); 
                 if (result.message === "Code compiled successfully") {
                     compileStatusIcon.className = 'status-icon success';
-                    compileStatusIcon.textContent = '✔'; // 성공 아이콘
+                    compileStatusIcon.textContent = '✔'; 
                     uploadButtonDiv.style.display = 'block'; // 컴파일 성공 시 업로드 버튼 표시
                 } else {
                     compileStatusIcon.className = 'status-icon failure';
-                    compileStatusIcon.textContent = '✖'; // 실패 아이콘
+                    compileStatusIcon.textContent = '✖'; 
                     uploadButtonDiv.style.display = 'none'; // 컴파일 실패 시 업로드 버튼 숨기기
                 }
             } catch (error) {
                 console.error('Error compiling code:', error);
                 compileStatusIcon.className = 'status-icon failure';
-                compileStatusIcon.textContent = '✖'; // 실패 아이콘
+                compileStatusIcon.textContent = '✖'; 
             }
         });
 
@@ -153,11 +171,13 @@
                 const codeText = generatedCodeElement.textContent;
                 const parsedData = parseGeneratedText(codeText);
                 parsedData.sensor_model = sensorModel;
-                parsedData.device_id = deviceId; // device_id 추가
+                parsedData.device_id = deviceId; 
                 const selectedDevice = devices.find(device => device.device_id === deviceId);
-                parsedData.sensors = selectedDevice.sensors; // sensors 추가
+                parsedData.sensors = selectedDevice.sensors;
                 const response = await uploadCode(parsedData);
                 alert('Code uploaded successfully!');
+                // 업로드 성공 시 대시보드 페이지로 이동
+                window.location.href = '/dashboard';
             } catch (error) {
                 console.error('Error uploading code:', error);
                 alert('Failed to upload code.');
@@ -177,10 +197,9 @@
                     <td>${device.system_id}</td>
                     <td>${device.item_id}</td>
                     <td>${device.model_name}</td>
-                    <td>${device.sensors.join(', ')}</td>
                     <td>${device.purpose}</td>
-                    <td>${device.pins.join(', ')}</td>
-                    <td><button onclick="selectDevice('${device.device_id}', '${device.model_name}')">Select</button></td>
+                    <td>${device.Actuator_Pins}</td>
+                    <td><button onclick="selectDevice('${device.device_id}', '${device.model_name}','${device.sensors}','${device.item_id}')">Select</button></td>
                 `;
                 deviceListElement.appendChild(row);
 
@@ -198,6 +217,8 @@
                     const data = await response.json();
                     generatedCodeElement.textContent = data.code;
                     Prism.highlightAll();
+                    
+
                     compileButtonDiv.style.display = 'block';
                     uploadButtonDiv.style.display = 'block';
                 } else {
@@ -213,17 +234,48 @@
             }
         }
 
-        function selectDevice(id, modelName) {
-            console.log('Select button clicked, device ID:', id); // 디버깅 로그 추가
+        let itemSpecificDetails = []; // 전역 변수로 데이터를 저장
+
+        async function selectDevice(id, modelName, sensor, item_Id) {
+            console.log('Select button clicked, device ID:', id); 
+            console.log('Model Name:', modelName);
+            console.log('Sensors:', sensor);
+            console.log('Item ID:', item_Id);
+
             deviceSelectElement.value = id;
             sensorModel = modelName;
-            console.log('deviceSelectElement value set to:', deviceSelectElement.value); // 디버깅 로그 추가
-            console.log('sensorModel set to:', sensorModel); // 디버깅 로그 추가
+            sensors = sensor;
+
             fetchRecentCode(id);
+
+            try {
+                // item_Id를 사용하여 서버로부터 디바이스 상세 정보 가져오기
+                const response = await fetch(`/itemSpecificDetail?item_id=${item_Id}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch item specific details');
+                }
+
+                itemSpecificDetails = await response.json(); // 데이터를 전역 변수에 저장
+
+                const specificInfoElement = document.getElementById('specificInfo');
+                specificInfoElement.innerHTML = '';
+
+                itemSpecificDetails.forEach(info => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${info.md_group}</td>
+                        <td>${info.md_key}</td>
+                        <td>${info.md_value}</td>
+                    `;
+                    specificInfoElement.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching device details:', error);
+            }
         }
 
         async function generateCode() {
-            deviceId = parseInt(deviceSelectElement.value, 10);  // deviceId를 숫자로 변환
+            const deviceId = parseInt(deviceSelectElement.value, 10);
             console.log('Selected Device ID:', deviceId);
 
             if (!deviceId) {
@@ -238,16 +290,34 @@
                 return;
             }
 
-            const response = await fetch('/generateCode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(selectedDevice) // Directly send the selected device data
-            });
-            const data = await response.json();
-            return data.code;
+            // itemSpecificDetails 데이터를 selectedDevice에 추가
+            const extendedDeviceData = {
+                ...selectedDevice,
+                itemSpecificDetails
+            };
+
+            try {
+                // 코드 생성을 위한 API 호출
+                const response = await fetch('/generateCode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(extendedDeviceData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate code');
+                }
+
+                const data = await response.json();
+                return data.code;
+            } catch (error) {
+                console.error('Error generating code:', error);
+                alert('Failed to generate code: ' + error.message);
+            }
         }
+
 
         async function compileCode(code) {
             const response = await fetch('/compileCode', {
@@ -278,10 +348,10 @@
         }
 
         function parseGeneratedText(text) {
-            console.log('Text to Parse:', text); // 디버깅 출력
+            console.log('Text to Parse:', text); 
             const codeMatch = text.match(/```(?:c\+\+|cpp|arduino)([\s\S]*?)```/);
             const code = codeMatch ? codeMatch[1].trim() : '';
-            console.log('Parsed Code:', code); // 디버깅 출력
+            console.log('Parsed Code:', code); 
             return { code };
         }
 
