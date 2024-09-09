@@ -7,7 +7,7 @@ const port = 10300;
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: '1234',
+  password: 'dsem1010',
   database: 'DIPDeviceRegistry'
 });
 //파일 입출력 가능 여부
@@ -303,8 +303,8 @@ app.delete('/actionDeleteItem', (req, res) => {
 const measurementDbConnection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: '1234',
-  database: 'DIPMeasurement' 
+  password: 'dsem1010',
+  database: 'dipmeasurement' 
 });
 
 app.post('/registerDevice', (req, res) => {

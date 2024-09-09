@@ -13,13 +13,13 @@ const app = express();
 const port = 3000;
 const MQTT_BROKER_URL = 'mqtt://192.168.0.207'; // 라즈베리파이의 IP 주소를 여기에 입력하세요
 const client = mqtt.connect(MQTT_BROKER_URL);
-const OPENAI_API_KEY = process.env.gptKey;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // MySQL 연결 설정 - 데이터 수집 DB
 const dbConfig = {
     host: 'localhost',  // MySQL 서버 호스트
     user: 'root',       // MySQL 사용자
-    password: '1234',   // MySQL 비밀번호
+    password: 'dsem1010',   // MySQL 비밀번호
     database: 'dipmeasurement'  // 사용할 데이터베이스 이름
 };
 
@@ -72,7 +72,7 @@ async function saveDataToDatabase(data) {
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '1234',
+    password: 'dsem1010',
     database: 'dipdeviceregistry'
   });
 
@@ -125,40 +125,70 @@ async function generateCodeWithGPT(deviceData) {
     const url = 'https://api.openai.com/v1/chat/completions';
 
     // 메타데이터 파싱
-    const controlCommands = deviceData.itemSpecificDetails.find(detail => detail.md_key === 'control_commands')?.md_value.split(',') || [];
+    const metadata = deviceData.itemSpecificDetails.reduce((acc, detail) => {
+        acc[detail.md_key] = detail.md_value;
+        return acc;
+    }, {});
+    const controlCommands = metadata.control_commands ? metadata.control_commands.split(',') : [];
+    
+
 
     // 하나의 파일에 모든 명령어에 대한 코드를 생성하도록 messages 준비
+    const messageContent = `
+        Generate Arduino code for the following device data:
+        {
+            "device_id": ${deviceData.device_id},
+            "device_name": "${deviceData.device_name}",
+            "model_name": "${deviceData.model_name}",
+            "purpose": "${deviceData.purpose}",
+            ${Object.keys(metadata).map(key => `"${key}": "${metadata[key]}"`).join(',\n')}
+        }
+        Please create an Arduino program that handles the following commands: ${controlCommands.join(', ')}.
+       
+        Generate Arduino code that:
+
+        1. Initializes the sensor pins and actuator pins (e.g., RGB LED and motor).
+        2. Creates a variable to store the actuator state with the initial value 'ON'.
+        3. Listens for commands from the Raspberry Pi to control the actuator:
+            - Commands include 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+            - For 'SET_COLOR_RED', change the actuator state to 'RED' and set the RGB LED to red.
+            - For 'SET_COLOR_GREEN', change the actuator state to 'GREEN' and set the RGB LED to green.
+            - For 'SET_COLOR_BLUE', change the actuator state to 'BLUE' and set the RGB LED to blue.
+            - For 'OFF', change the actuator state to 'OFF' and turn off the RGB LED.
+        4. Continuously collect sensor data from the specified sensor pins and format it as a JSON object.
+        5. Continuously monitor and update the actuator state.
+        6. Implement logic to send both the sensor data and the actuator state to the Raspberry Pi via "Serial.print()". The format should be:
+            - "{ "sensor_data": { ... }, "actuator_state": "<state>" }"
+        7. Ensure that sensor data and actuator state are sent continuously at a regular interval (e.g., every second).
+        8. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
+        9. Ensure the code is modular, clear, and free from unnecessary comments or explanations.
+        10. "device_id", "device_name", and code that declares and outputs the name and status of each actuator as a variable. The name of the actuator should be the name of the variable, and the value of that variable should mean the status of that actuator.
+
+        Focus on:
+        - Continuously sending formatted sensor data and actuator state.
+        - Sending both sensor data and actuator state at regular intervals.
+        - Maintaining a clear and organized code structure with no additional explanations or comments.
+
+        Provide only the Arduino code without additional explanations or comments.
+
+        Requirements for the code:
+        1. Use the Arduino programming language.
+        2. Include the necessary libraries for sensor and actuator interfacing.
+        3. Implement the code in a modular and reusable manner.
+        4. Do not use any symbol or character that is not supported by the Arduino IDE.
+        5. Do not use any sentence that is not related to the code generation task.
+        6. Only include the necessary code to fulfill the requirements mentioned above.
+        7. Continuously transmit both the sensor data and the actuator state to the Raspberry Pi via Serial communication.
+        8. Only include the Arduino code. **Do not include any language tags, explanations, or comments** (like cpp etc.).
+    `;
+
+
     const messages = [
         {
             role: 'user',
-            content: `Generate Arduino code for the following device data:
-            {
-                "device_id": ${deviceData.device_id},
-                "device_name": "${deviceData.device_name}",
-                "model_name": "${deviceData.model_name}",
-                "purpose": "${deviceData.purpose}",
-                "actuator_pins": ${JSON.stringify(deviceData.Actuator_Pins)},
-                "actuator_type": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'actuator_type')?.md_value}",
-                "control_cycle": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'control_cycle')?.md_value}",
-                "power": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'power')?.md_value}",
-                "initial_color": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'inital_color')?.md_value}",
-                "max_brightness": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'max_brightness')?.md_value}",
-                "red_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'red_pin')?.md_value}",
-                "green_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'green_pin')?.md_value}",
-                "blue_pin": "${deviceData.itemSpecificDetails.find(detail => detail.md_key === 'blue_pin')?.md_value}"
-            }
-            Please create a comprehensive Arduino program that can handle the following commands: ${controlCommands.join(', ')}.
-            For each command:
-            - "OFF": Turns off the RGB LED.
-            - "ON": Turns on the RGB LED to the initial color.
-            - "SET_COLOR_RED": Sets the RGB LED to red.
-            - "SET_COLOR_GREEN": Sets the RGB LED to green.
-            - "SET_COLOR_BLUE": Sets the RGB LED to blue.
-            Ensure the code initializes the RGB LED pins as outputs, reads commands from serial input, and sets the LED color accordingly. Include error handling for unsupported commands or incorrect message formats. Provide **only** the Arduino code. **Do not include any language tags, explanations, or comments.**
-            `
+            content: messageContent
         }
     ];
-
     const data = {
         model: 'gpt-3.5-turbo',
         temperature: 0.5,
@@ -186,7 +216,7 @@ async function generateCodeWithGPT(deviceData) {
             console.log('MQTT 클라이언트가 연결되었습니다.');
 
             // device_name을 사용하여 토픽 정의
-            const topic = `${deviceData.device_name.replace(/\s+/g, '_')}/upload`; // 공백을 언더스코어로 대체
+            const topic = `UPLOAD/${deviceData.device_name.replace(/\s+/g, '_')}`; // 공백을 언더스코어로 대체
             mqttClient.publish(topic, code, (err) => {
                 if (err) {
                     console.error('MQTT 메시지 전송 실패:', err);
@@ -206,7 +236,7 @@ async function generateCodeWithGPT(deviceData) {
 app.get('/getDevices', async (req, res) => {
     try {
         //디바이스 레지스트리에서 디바이스 목록 가져오기
-        const response = await axios.get('http://203.234.62.143:10300/deviceList');
+        const response = await axios.get('http://203.234.62.142:10300/deviceList');
         const devices = response.data;
         console.log('devices:',devices);
         //System_id를 통해 필터링 진행 (Arduino에 관련된 값만 가져오기 위해)
@@ -214,7 +244,7 @@ app.get('/getDevices', async (req, res) => {
 
         //필터링 된 기기들의 정보를 가져오기 위한 반복문
         for (let device of arduinoDevices) {
-            const itemSpecificDetailResponse = await axios.get(`http://203.234.62.143:10300/itemSpecificDetail?item_id=${device.item_id}`);
+            const itemSpecificDetailResponse = await axios.get(`http://203.234.62.142:10300/itemSpecificDetail?item_id=${device.item_id}`);
             const itemSpecificDetails = itemSpecificDetailResponse.data.filter(detail => detail.item_id === device.item_id);
             
             //코드 생성에 필요하다고 생각되는 것들을 리스트업
