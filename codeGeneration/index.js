@@ -147,8 +147,6 @@ app.post('/api/data', async (req, res) => {
     }
 });
 
-const fs = require('fs');
-
 
 async function generateCodeWithGPT(deviceData) {
     const api_key = OPENAI_API_KEY;
