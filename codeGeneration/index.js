@@ -6,68 +6,30 @@ const path = require('path');
 const mqtt = require('mqtt');
 const dotenv = require('dotenv');
 const mysql = require('mysql');
+const util = require('util');
 
 dotenv.config();
 
 const app = express();
 const port = 3000;
-const MQTT_BROKER_URL = 'mqtt://192.168.0.207'; // 라즈베리파이의 IP 주소를 여기에 입력하세요
+const MQTT_BROKER_URL = 'mqtt://203.234.62.109'; // 라즈베리파이의 IP 주소를 여기에 입력하세요
 const client = mqtt.connect(MQTT_BROKER_URL);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // MySQL 연결 설정 - 데이터 수집 DB
-const dbConfig = {
+const dbConfig = mysql.createConnection({
     host: 'localhost',  // MySQL 서버 호스트
     user: 'root',       // MySQL 사용자
     password: 'dsem1010',   // MySQL 비밀번호
     database: 'dipmeasurement'  // 사용할 데이터베이스 이름
-};
-
-// Middleware
-app.use(bodyParser.json());
-app.use(cors());
-app.use(express.static(path.join(__dirname, 'public')));
-
-let compileResult = null;
-let recentGeneratedCode = {}; // 최근 생성된 코드를 저장하기 위한 객체
-
-// MQTT 브로커 연결
-client.on('connect', () => {
-    console.log('Connected to MQTT broker');
-    client.subscribe('compile/result');
-    client.subscribe('data/collected');
 });
-
-client.on('message', (topic, message) => {
-    if (topic == 'compile/result') {
-        compileResult = JSON.parse(message.toString());
-        console.log('Compile result received:', compileResult);  // 결과 로그 출력
-    } else if (topic == 'data/collected') {
-        console.log('topic=',topic);
-        const data = JSON.parse(message.toString());
-        console.log('Data collected:', data);  // 수집된 데이터 로그 출력
-        saveDataToDatabase(data);  // 데이터베이스에 데이터 저장
+dbConfig.connect((err) => {
+    if (err) {
+        console.error('MySQL 연결 오류:', err);
+        return;
     }
+    console.log('dbConfig 연결 성공');
 });
-
-async function saveDataToDatabase(data) {
-    try {
-        const connection = await mysql.createConnection(dbConfig);
-        const tableName = `device${currentDeviceId.toString().padStart(4, '0')}`;
-
-        // sensor_data와 sensor_keys를 이용하여 동적으로 컬럼과 값을 설정 ...은 스프레드 문법으로 객체를 펼치는 데 사용됨 (1차원으로 만든다고 생각)
-        const columns = ['timestamp', ...Object.keys(data.sensors)];
-        const values = [data.timestamp, ...Object.values(data.sensors)];
-        //펼쳐진 객체를 ? 문자를 이용하여 값의 자리 표시자를 정의함 즉, SQL에서 값이 삽입될 위치를 나타내게됨 [?,?,?]이라고 생각
-        const placeholders = columns.map(() => '?').join(', ');
-
-        const query = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
-        await connection.execute(query, values);
-        await connection.end();
-    } catch (error) {
-        console.error('Error saving data to database:', error);
-    }
-}
 // MySQL 연결 설정
 const connection = mysql.createConnection({
     host: 'localhost',
@@ -83,6 +45,74 @@ connection.connect((err) => {
     }
     console.log('MySQL 연결 성공');
 });
+
+// Middleware
+app.use(bodyParser.json());
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
+
+let compileResult = null;
+let recentGeneratedCode = {}; // 최근 생성된 코드를 저장하기 위한 객체
+
+// MQTT 브로커 연결
+client.on('connect', () => {
+    console.log('Connected to MQTT broker');
+    client.subscribe('SENSOR_DATA/STATUS');
+});
+
+client.on('message', async (topic, message) => {
+    if (topic == 'SENSOR_DATA/STATUS') {
+        const data = JSON.parse(message.toString());
+        console.log('Compile result received:', data);  // 결과 로그 출력
+        // 메시지가 오면 DB에 저장하는 함수 호출
+        await saveDataToDatabase(data);
+    }
+});
+
+// Promisify를 통해 connection.query를 promise로 사용
+const query = util.promisify(connection.query).bind(connection);
+const query2 = util.promisify(dbConfig.query).bind(dbConfig);
+
+async function saveDataToDatabase(data) {
+    try {
+        // device_id로부터 해당 디바이스의 sensor 이름을 조회
+        const sensorResult = await query(
+            'SELECT md_value AS sensor_name FROM item_specific WHERE item_id = ? AND md_key = "sensor"', 
+            [data.device_id]
+        );
+        const actuatorResult = await query(
+            'SELECT md_value AS actuator_name FROM item_specific WHERE item_id = ? AND md_key = "actuator"', 
+            [data.device_id]
+        );
+        
+        // sensor_name을 설정
+        const sensorName = sensorResult.length > 0 ? sensorResult[0].sensor_name : null;
+        const actuatorName = actuatorResult.length > 0 ? actuatorResult[0].actuator_name : null;
+        if (!sensorName) {
+            console.error('No sensor found for device:', data.device_id);
+            return;
+        }
+
+        const tableName = `device${data.device_id.toString().padStart(4, '0')}`;
+
+        // sensor_name을 사용하여 동적으로 컬럼 설정
+        const columns = ['timestamp', sensorName, actuatorName];
+        const values = [data.timestamp, data.sensor_data, data.actuator_state];
+        
+        // 컬럼과 값을 ?로 매핑
+        const placeholders = columns.map(() => '?').join(', ');
+
+        // 동적 SQL 쿼리 생성
+        const queryStr = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
+        await query2(queryStr, values);
+
+        console.log(`Data saved successfully for device ${data.device_id}`);
+    } catch (error) {
+        console.error('Error saving data to database:', error);
+    } 
+}
+
+
 app.get('/itemSpecificDetail', (req, res) => {
     const itemId = req.query.item_id; // 클라이언트에서 item_id 받기
   
@@ -160,7 +190,7 @@ async function generateCodeWithGPT(deviceData) {
         5. Continuously collect sensor data from the specified sensor pins and store it in the sensor variable created earlier (e.g., 'MQ_7').
         6. Continuously monitor and update the actuator state.
         7. Implement logic to send both the sensor data and the actuator state to the Raspberry Pi via "Serial.print()". The format should be:
-            - "{ \\"device_id\\": \\"<device_id>\\", \\"timestamp\\": \\"<timestamp>\\", \\"sensor\\": \\"<sensorValue>\\", \\"actuator\\": \\"<actuatorState>\\" }"
+            - "{ \\"device_id\\": \\"<device_id>\\", \\"sensor\\": \\"<sensorValue>\\", \\"actuator\\": \\"<actuatorState>\\" }"
             - The sensor data should be taken from the sensor variable (e.g., 'MQ_7') and the actuator state from the respective actuator variable (e.g., 'RGBLED').
         8. Ensure that sensor data and actuator state are sent continuously at a regular interval (e.g., every second).
         9. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
