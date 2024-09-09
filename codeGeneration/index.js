@@ -144,25 +144,28 @@ async function generateCodeWithGPT(deviceData) {
             ${Object.keys(metadata).map(key => `"${key}": "${metadata[key]}"`).join(',\n')}
         }
         Please create an Arduino program that handles the following commands: ${controlCommands.join(', ')}.
-       
+
         Generate Arduino code that:
 
         1. Initializes the sensor pins and actuator pins (e.g., RGB LED and motor).
-        2. Creates a variable to store the actuator state with the initial value 'ON'.
-        3. Listens for commands from the Raspberry Pi to control the actuator:
+        2. Creates variables based on the device data:
+            - 
+        3. Creates a variable to store the actuator state with the initial value 'ON'.
+        4. Listens for commands from the Raspberry Pi to control the actuator:
             - Commands include 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
             - For 'SET_COLOR_RED', change the actuator state to 'RED' and set the RGB LED to red.
             - For 'SET_COLOR_GREEN', change the actuator state to 'GREEN' and set the RGB LED to green.
             - For 'SET_COLOR_BLUE', change the actuator state to 'BLUE' and set the RGB LED to blue.
             - For 'OFF', change the actuator state to 'OFF' and turn off the RGB LED.
-        4. Continuously collect sensor data from the specified sensor pins and format it as a JSON object.
-        5. Continuously monitor and update the actuator state.
-        6. Implement logic to send both the sensor data and the actuator state to the Raspberry Pi via "Serial.print()". The format should be:
-            - "{ "sensor_data": { ... }, "actuator_state": "<state>" }"
-        7. Ensure that sensor data and actuator state are sent continuously at a regular interval (e.g., every second).
-        8. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
-        9. Ensure the code is modular, clear, and free from unnecessary comments or explanations.
-        10. "device_id", "device_name", and code that declares and outputs the name and status of each actuator as a variable. The name of the actuator should be the name of the variable, and the value of that variable should mean the status of that actuator.
+        5. Continuously collect sensor data from the specified sensor pins and store it in the sensor variable created earlier (e.g., 'MQ_7').
+        6. Continuously monitor and update the actuator state.
+        7. Implement logic to send both the sensor data and the actuator state to the Raspberry Pi via "Serial.print()". The format should be:
+            - "{ \\"device_id\\": \\"<device_id>\\", \\"timestamp\\": \\"<timestamp>\\", \\"sensor\\": \\"<sensorValue>\\", \\"actuator\\": \\"<actuatorState>\\" }"
+            - The sensor data should be taken from the sensor variable (e.g., 'MQ_7') and the actuator state from the respective actuator variable (e.g., 'RGBLED').
+        8. Ensure that sensor data and actuator state are sent continuously at a regular interval (e.g., every second).
+        9. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
+        10. Ensure that the code is modular, clear, and free from unnecessary comments or explanations.
+        11. Declare and output the name and status of each actuator as a variable. The name of the actuator should be the name of the variable, and the value of that variable should represent the status of that actuator.
 
         Focus on:
         - Continuously sending formatted sensor data and actuator state.
@@ -181,6 +184,7 @@ async function generateCodeWithGPT(deviceData) {
         7. Continuously transmit both the sensor data and the actuator state to the Raspberry Pi via Serial communication.
         8. Only include the Arduino code. **Do not include any language tags, explanations, or comments** (like cpp etc.).
     `;
+
 
 
     const messages = [
@@ -226,6 +230,8 @@ async function generateCodeWithGPT(deviceData) {
                 mqttClient.end();
             });
         });
+        return code;
+
     } catch (error) {
         console.error('Error generating code:', error);
     }

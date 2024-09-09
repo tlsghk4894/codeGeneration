@@ -132,11 +132,7 @@
                 const generatedCode = await generateCode();
                 console.log('Generated Code:', generatedCode); 
                 generatedCodeElement.textContent = generatedCode;
-                console.log('compileButtonDiv:', compileButtonDiv); 
-                compileButtonDiv.style.display = 'block'; // 코드가 생성되면 컴파일 버튼을 표시
-                compileStatusIcon.className = ''; // 컴파일 상태 초기화
-                compileStatusIcon.textContent = ''; // 컴파일 상태 아이콘 초기화
-                uploadButtonDiv.style.display = 'block'; // 업로드 버튼 표시
+                Prism.highlightAll();
             } catch (error) {
                 console.error('Error generating code:', error);
             }
@@ -277,7 +273,7 @@
         async function generateCode() {
             const deviceId = parseInt(deviceSelectElement.value, 10);
             console.log('Selected Device ID:', deviceId);
-
+            
             if (!deviceId) {
                 alert('Please select a device');
                 return;
@@ -311,6 +307,7 @@
                 }
 
                 const data = await response.json();
+                console.log("data : ",data);
                 return data.code;
             } catch (error) {
                 console.error('Error generating code:', error);
