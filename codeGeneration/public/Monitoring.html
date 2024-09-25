@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Monitoring System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        .device-list {
+            width: 50%;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .device-item {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .device-item:last-child {
+            border-bottom: none;
+        }
+        .device-item:hover {
+            background-color: #f0f0f0;
+        }
+        .register-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .register-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Device Monitoring System</h1>
+    <div class="device-list" id="deviceList">
+        <p>Loading devices...</p>
+    </div>
+
+    <button class="register-btn" onclick="registerDevice()">Register New Device</button>
+
+    <script>
+        // 서버에서 기기 목록을 가져와서 표시하는 함수
+        async function loadDevices() {
+            try {
+                const response = await fetch('/getdevices');
+                const devices = await response.json();
+                
+                const deviceList = document.getElementById('deviceList');
+                deviceList.innerHTML = ''; // 기존 내용을 지우고 새로운 목록을 추가
+                
+                if (devices.length === 0) {
+                    deviceList.innerHTML = '<p>No devices found.</p>';
+                } else {
+                    devices.forEach(device => {
+                        const div = document.createElement('div');
+                        div.className = 'device-item';
+                        div.textContent = device.device_name;
+                        div.onclick = () => {
+                            window.location.href = `/${device.device_name}.html`;
+                        };
+                        deviceList.appendChild(div);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading devices:', error);
+                document.getElementById('deviceList').innerHTML = '<p>Error loading devices.</p>';
+            }
+        }
+
+        // 기기 등록 버튼을 클릭하면 localhost:10300의 등록 페이지로 이동
+        function registerDevice() {
+            window.location.href = 'http://localhost:10300/deviceRegistration.html';
+        }
+
+        // 페이지가 로드되면 기기 목록을 가져옴
+        window.onload = loadDevices;
+    </script>
+</body>
+</html>

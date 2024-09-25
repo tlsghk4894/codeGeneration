@@ -135,19 +135,6 @@ app.get('/itemSpecificDetail', (req, res) => {
   });
 
 
-
-// 데이터 수신 엔드포인트
-app.post('/api/data', async (req, res) => {
-    const data = req.body;
-    try {
-        await saveDataToDatabase(data);
-        res.status(200).send('Data inserted successfully');
-    } catch (error) {
-        res.status(500).send('Database insert failed');
-    }
-});
-
-
 async function generateCodeWithGPT(deviceData) {
     const api_key = OPENAI_API_KEY;
     const url = 'https://api.openai.com/v1/chat/completions';
@@ -180,7 +167,8 @@ async function generateCodeWithGPT(deviceData) {
             - 
         3. Creates a variable to store the actuator state with the initial value 'ON'.
         4. Listens for commands from the Raspberry Pi to control the actuator:
-            - Commands include 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+            - Commands include 'ON', 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+            - For 'ON', change the actuator state to 'ON', and set the RGB LED to initial color.
             - For 'SET_COLOR_RED', change the actuator state to 'RED' and set the RGB LED to red.
             - For 'SET_COLOR_GREEN', change the actuator state to 'GREEN' and set the RGB LED to green.
             - For 'SET_COLOR_BLUE', change the actuator state to 'BLUE' and set the RGB LED to blue.
@@ -194,6 +182,8 @@ async function generateCodeWithGPT(deviceData) {
         9. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
         10. Ensure that the code is modular, clear, and free from unnecessary comments or explanations.
         11. Declare and output the name and status of each actuator as a variable. The name of the actuator should be the name of the variable, and the value of that variable should represent the status of that actuator.
+        12. The "delay" value should not default to 1000 unless specifically provided in the metadata. Instead, it should be based on the provided "delay" metadata for this device.
+
 
         Focus on:
         - Continuously sending formatted sensor data and actuator state.
@@ -409,6 +399,11 @@ app.post('/uploadCode', (req, res) => {
 
         res.status(200).json({ message: 'Code sent to Raspberry Pi via MQTT' });
     });
+});
+
+// 대시보드 페이지 서빙
+app.get('/monitoring', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'Monitoring.html'));
 });
 
 // 대시보드 페이지 서빙

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servo Motor Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 300px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+        }
+        .nav {
+            margin-top: 20px;
+        }
+        .nav a {
+            text-decoration: none;
+            font-size: 14px;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Servo Motor Control Panel</h2>
+        <button class="btn" onclick="sendCommand('ACTUATOR:ROTATE_0', 'ACTUATOR/SERVO')">Set Position: 0°</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:ROTATE_90', 'ACTUATOR/SERVO')">Set Position: 90°</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:ROTATE_180', 'ACTUATOR/SERVO')">Set Position: 180°</button>
+
+        <div class="status">
+            <p><strong>Status:</strong> <span id="statusText">Disconnected</span></p>
+        </div>
+
+        <div class="nav">
+            <a href="RGBLED.html">Go to RGBLED Control</a>
+        </div>
+    </div>
+
+    <script>
+        const serverUrl = 'http://203.234.62.142:10300/send-mqtt';
+
+        async function sendCommand(command) {
+            try {
+                const response = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        topic: 'ACTUATOR/SERVO',
+                        message: command
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('Command sent successfully:', command);
+                    document.getElementById('statusText').innerText = 'Command Sent';
+                } else {
+                    console.error('Failed to send command:', response.statusText);
+                    document.getElementById('statusText').innerText = 'Failed to send command';
+                }
+            } catch (error) {
+                console.error('Error sending command:', error);
+                document.getElementById('statusText').innerText = 'Error sending command';
+            }
+        }
+    </script>
+</body>
+</html>
