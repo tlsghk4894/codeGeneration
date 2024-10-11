@@ -85,20 +85,27 @@ async function saveDataToDatabase(data) {
             [data.device_id]
         );
         
-        // sensor_name을 설정
+        // sensor_name과 actuator_name 설정
         const sensorName = sensorResult.length > 0 ? sensorResult[0].sensor_name : null;
         const actuatorName = actuatorResult.length > 0 ? actuatorResult[0].actuator_name : null;
-        if (!sensorName) {
-            console.error('No sensor found for device:', data.device_id);
+        
+        if (!actuatorName) {
+            console.error(`No actuator found for device: ${data.device_id}`);
             return;
         }
 
         const tableName = `device${data.device_id.toString().padStart(4, '0')}`;
 
-        // sensor_name을 사용하여 동적으로 컬럼 설정
-        const columns = ['timestamp', sensorName, actuatorName];
-        const values = [data.timestamp, data.sensor_data, data.actuator_state];
-        
+        // 동적으로 컬럼과 값을 설정
+        const columns = ['timestamp', `\`${actuatorName}\``];  // actuatorName을 백틱으로 감쌈
+        const values = [data.timestamp, data.actuator_state];
+
+        // sensor 데이터가 존재하는 경우에만 추가
+        if (sensorName && data.sensor_data) {
+            columns.push(`\`${sensorName}\``);  // sensorName도 백틱으로 감쌈
+            values.push(data.sensor_data);
+        }
+
         // 컬럼과 값을 ?로 매핑
         const placeholders = columns.map(() => '?').join(', ');
 
@@ -111,6 +118,7 @@ async function saveDataToDatabase(data) {
         console.error('Error saving data to database:', error);
     } 
 }
+
 
 
 app.get('/itemSpecificDetail', (req, res) => {
@@ -162,28 +170,184 @@ async function generateCodeWithGPT(deviceData) {
 
         Generate Arduino code that:
 
-        1. Initializes the sensor pins and actuator pins (e.g., RGB LED and motor).
-        2. Creates variables based on the device data:
-            - 
-        3. Creates a variable to store the actuator state with the initial value 'ON'.
+        1. Initializes the sensor pins and actuator pins based on the actuator type (e.g., RGB LED, Servo Motor, or LCD Display).
+        2. Creates variables based on the device data.
+        3. Creates a variable to store the actuator state with the initial value of metadata.initial_value.
         4. Listens for commands from the Raspberry Pi to control the actuator:
-            - Commands include 'ON', 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
-            - For 'ON', change the actuator state to 'ON', and set the RGB LED to initial color.
-            - For 'SET_COLOR_RED', change the actuator state to 'RED' and set the RGB LED to red.
-            - For 'SET_COLOR_GREEN', change the actuator state to 'GREEN' and set the RGB LED to green.
-            - For 'SET_COLOR_BLUE', change the actuator state to 'BLUE' and set the RGB LED to blue.
-            - For 'OFF', change the actuator state to 'OFF' and turn off the RGB LED.
-        5. Continuously collect sensor data from the specified sensor pins and store it in the sensor variable created earlier (e.g., 'MQ_7').
+        
+            **If the actuator type is "RGBLED"**:
+            
+                Here is the structure for the code. Follow this format to generate the Arduino program:
+
+                1. **Setup:**
+                    - Initialize the pins for the actuator.
+                    - Set up the serial communication.
+
+                2. **Loop:**
+                    - Continuously read commands from the serial input.
+                    - Handle different RGB LED commands such as 'ON', 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+                    - After executing a command, send the current color as actuator state to the Raspberry Pi.
+                    - Ensure that the actuator state is sent in the following format:
+                        - "{ \\"device_id\\": \\"<device_id>\\", \\"sensor\\": \\"N/A\\", \\"actuator\\": \\"<currentColor>\\" }"               
+                    - The actuator state should be sent at a regular interval (e.g., every second).
+                    - Include functions for setting the color of the RGB LED based on the command received.
+                    - Ensure that the code is modular and easy to understand.
+                    - Declare and output the name and status of the RGB LED as a variable. The name of the variable should be the name of the actuator, and the value of that variable should represent the status of the RGB LED.
+                    - The "delay" value should not default to 1000 unless specifically provided in the metadata. Instead, it should be based on the provided "delay" metadata for this device.
+                 3. **Example Code:**
+                    - The following is an example code snippet for an RGB LED actuator:
+                        int redPin = 9;
+                        int greenPin = 10;
+                        int bluePin = 11;
+                        int delay = 5000;
+                        String currentColor = "255 0 0";
+
+                        void setup() {
+                            pinMode(redPin, OUTPUT);
+                            pinMode(greenPin, OUTPUT);
+                            pinMode(bluePin, OUTPUT);
+                            Serial.begin(9600);
+                        }
+
+                        void loop() {
+                            if (Serial.available() > 0) {
+                                String command = Serial.readStringUntil('\\n');
+                                if (command == "ON") {
+                                    setColor(currentColor);
+                                } else if (command == "SET_COLOR_RED") {
+                                    currentColor = "255 0 0";
+                                    setColor(currentColor);
+                                } else if (command == "SET_COLOR_GREEN") {
+                                    currentColor = "0 255 0";
+                                    setColor(currentColor);
+                                } else if (command == "SET_COLOR_BLUE") {
+                                    currentColor = "0 0 255";
+                                    setColor(currentColor);
+                                } else if (command == "OFF") {
+                                    setColor("0 0 0");
+                                }
+                            }
+
+                            // Send current state
+                            Serial.print("{ \"device_id\": \"1\", \"actuator\": \"" + currentColor + "\" }");
+                        }
+
+                        void setColor(String color) {
+                            int redValue = color.substring(0, color.indexOf(' ')).toInt();
+                            color = color.substring(color.indexOf(' ') + 1);
+                            int greenValue = color.substring(0, color.indexOf(' ')).toInt();
+                            int blueValue = color.substring(color.indexOf(' ') + 1).toInt();
+
+                            analogWrite(redPin, redValue);
+                            analogWrite(greenPin, greenValue);
+                            analogWrite(bluePin, blueValue);
+                        }
+
+            **If the actuator type is "ServoMotor"**:
+                Here is the structure for the code. Follow this format to generate the Arduino program:
+
+                1. **Setup:**
+                    - Initialize the Servo motor pin.
+                    - Set up the serial communication.
+
+                2. **Loop:**
+                    - Continuously read commands from the serial input.
+                    - Handle Servo motor angle control commands such as 'SERVO_ANGLE_0', 'SERVO_ANGLE_90', 'SERVO_ANGLE_180', and 'OFF'.
+                    - After executing a command, send the current servo angle as actuator state to the Raspberry Pi.
+                3. **Example Code:**
+                    #include <Servo.h>
+                    Servo servoMotor;
+                    int currentServoAngle = 0;
+
+                    void setup() {
+                        servoMotor.attach(9);  // Attach the Servo motor to pin 9
+                        Serial.begin(9600);    // Initialize serial communication
+                    }
+
+                    void loop() {
+                        if (Serial.available() > 0) {
+                            String command = Serial.readStringUntil('\\n');
+                            handleServoCommand(command);
+                        }
+
+                        // Send current servo angle as actuator state
+                        Serial.print("{ \"device_id\": \"2\", \"actuator\": \"" + String(currentServoAngle) + "\" }");
+
+                        delay(5000); 
+                    }
+
+                    // Handle Servo motor angle commands
+                    void handleServoCommand(String command) {
+                        if (command == "ROTATE_0") {
+                            servoMotor.write(0);
+                            currentServoAngle = 0;
+                        } else if (command == "ROTATE_90") {
+                            servoMotor.write(90);
+                            currentServoAngle = 90;
+                        } else if (command == "ROTATE_180") {
+                            servoMotor.write(180);
+                            currentServoAngle = 180;
+                        } else if (command == "OFF") {
+                            servoMotor.write(0);  // Reset the Servo motor to 0 degrees
+                            currentServoAngle = 0;
+                        }
+                    }
+            **If the actuator type is "LcdDisplay"**:
+                Here is the structure for the code. Follow this format to generate the Arduino program:
+                DO NOT INCLUDE SERVO MOTOR CODE IN THE LCD DISPLAY CODE.
+                1. **Setup:**
+                    - Initialize the LCD display with the corresponding pin setup.
+                    - Set up the serial communication.
+                    - Display an initial message on the LCD (e.g., "Welcome!").
+
+                2. **Loop:**
+                    - Continuously listen for commands from the Raspberry Pi to control the LCD.
+                    - Handle commands such as 'CLEAR' to clear the display and 'WRITE_TEXT' to write text on the LCD.
+                3. **Example Code:**
+                    #include <LiquidCrystal.h>
+                    // LCD pins: RS, EN, D4, D5, D6, D7
+                    LiquidCrystal lcd(3, 4, 10, 11, 12, 13);
+                    String currentMessage = "Welcome!";
+
+                    void setup() {
+                        lcd.begin(16, 2);  // Initialize the LCD with 16 columns and 2 rows
+                        lcd.print(currentMessage);  // Display the initial message
+                        Serial.begin(9600);         // Initialize serial communication
+                    }
+
+                    void loop() {
+                        if (Serial.available() > 0) {
+                            String command = Serial.readStringUntil('\\n');
+                            handleLcdCommand(command);
+                        }
+
+                        // Send the current message displayed on the LCD as actuator state
+                        Serial.print("{ \"device_id\": \"3\", \"actuator\": \"" + currentMessage + "\" }");
+
+                        delay(5000);
+                    }
+
+                    // Handle LCD display commands
+                    void handleLcdCommand(String command) {
+                        if (command == "CLEAR") {
+                            lcd.clear();  // Clear the display
+                            currentMessage = "";  // Update the actuator state
+                        } else if (command.startsWith("WRITE_TEXT")) {
+                            String text = command.substring(11);  // Extract the text to display
+                            lcd.clear();  // Clear the display before writing new text
+                            lcd.print(text);
+                            currentMessage = text;  // Update the actuator state
+                        }
+                    }
+        5. Continuously collect sensor data from the specified sensor pins and store it in the sensor variable created earlier (if applicable).
         6. Continuously monitor and update the actuator state.
         7. Implement logic to send both the sensor data and the actuator state to the Raspberry Pi via "Serial.print()". The format should be:
             - "{ \\"device_id\\": \\"<device_id>\\", \\"sensor\\": \\"<sensorValue>\\", \\"actuator\\": \\"<actuatorState>\\" }"
-            - The sensor data should be taken from the sensor variable (e.g., 'MQ_7') and the actuator state from the respective actuator variable (e.g., 'RGBLED').
         8. Ensure that sensor data and actuator state are sent continuously at a regular interval (e.g., every second).
         9. Include functions for handling incoming commands, updating the actuator state, and sending data to the Raspberry Pi.
         10. Ensure that the code is modular, clear, and free from unnecessary comments or explanations.
         11. Declare and output the name and status of each actuator as a variable. The name of the actuator should be the name of the variable, and the value of that variable should represent the status of that actuator.
         12. The "delay" value should not default to 1000 unless specifically provided in the metadata. Instead, it should be based on the provided "delay" metadata for this device.
-
 
         Focus on:
         - Continuously sending formatted sensor data and actuator state.
@@ -202,6 +366,7 @@ async function generateCodeWithGPT(deviceData) {
         7. Continuously transmit both the sensor data and the actuator state to the Raspberry Pi via Serial communication.
         8. Only include the Arduino code. **Do not include any language tags, explanations, or comments** (like cpp etc.).
     `;
+
 
 
 

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCD Display Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 300px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>LCD Display Control Panel</h2>
+    <!-- Input field for the text to display -->
+    <input type="text" id="lcdText" placeholder="Enter text to display on LCD">
+
+    <!-- Buttons to send commands -->
+    <button class="btn" onclick="sendCommand('WRITE_TEXT')">Write Text</button>
+    <button class="btn" onclick="sendCommand('CLEAR')">Clear Display</button>
+
+    <div class="status">
+        <p><strong>Status:</strong> <span id="statusText">Disconnected</span></p>
+    </div>
+</div>
+
+<script>
+    const serverUrl = 'http://203.234.62.142:10300/send-mqtt';  // 서버 URL 설정
+
+    async function sendCommand(action) {
+        const text = document.getElementById('lcdText').value.trim();
+        let message = '';
+
+        // 명령에 따라 메시지 작성
+        if (action === 'WRITE_TEXT' && text === '') {
+            document.getElementById('statusText').innerText = 'Please enter text!';
+            return;
+        } else if (action === 'WRITE_TEXT') {
+            message = `WRITE_TEXT_${text}`;  // 메시지 형식 조정
+        } else if (action === 'CLEAR') {
+            message = 'CLEAR';  // LCD 화면 지우기 명령어
+        }
+
+        try {
+            const response = await fetch(serverUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    topic: 'ACTUATOR/LCD',
+                    message: message
+                })
+            });
+
+            if (response.ok) {
+                console.log('Command sent successfully:', message);
+                document.getElementById('statusText').innerText = 'Command Sent';
+            } else {
+                console.error('Failed to send command:', response.statusText);
+                document.getElementById('statusText').innerText = 'Failed to send command';
+            }
+        } catch (error) {
+            console.error('Error sending command:', error);
+            document.getElementById('statusText').innerText = 'Error sending command';
+        }
+    }
+</script>
+
+</body>
+</html>

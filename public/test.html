@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LCD Display Control Panel</title>
+    <title>Device Monitoring and Control</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -32,56 +32,29 @@
         .status {
             margin-top: 20px;
         }
-        .nav {
-            margin-top: 20px;
-        }
-        .nav a {
-            text-decoration: none;
-            font-size: 14px;
-            color: blue;
-        }
-        input[type="text"] {
-            padding: 10px;
-            width: 100%;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>LCD Display Control Panel</h2>
-        <!-- Input field for the text to display -->
-        <input type="text" id="lcdText" placeholder="Enter text to display on LCD">
-
-        <button class="btn" onclick="sendCommand('WRITE_TEXT')">Write Text</button>
-        <button class="btn" onclick="sendCommand('CLEAR')">Clear Display</button>
+        <h2>Device Control Panel</h2>
+        <button class="btn" onclick="sendCommand('ACTUATOR:LED_ON', 'ACTUATOR/RGBLED')">Turn ON LED</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:LED_OFF', 'ACTUATOR/RGBLED')">Turn OFF LED</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:SET_COLOR_RED', 'ACTUATOR/RGBLED')">Set Color: Red</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:SET_COLOR_GREEN', 'ACTUATOR/RGBLED')">Set Color: Green</button>
+        <button class="btn" onclick="sendCommand('ACTUATOR:SET_COLOR_BLUE', 'ACTUATOR/RGBLED')">Set Color: Blue</button>
 
         <div class="status">
             <p><strong>Status:</strong> <span id="statusText">Disconnected</span></p>
         </div>
-
         <div class="nav">
             <a href="monitoring.html">Go to Main</a>
         </div>
     </div>
 
     <script>
-        const serverUrl = 'http://203.234.62.142:10300/send-mqtt'; // 서버 URL 설정
+        const serverUrl = 'http://203.234.62.142:10300/send-mqtt'; // 서버의 엔드포인트 URL을 설정합니다.
 
-        async function sendCommand(action) {
-            const text = document.getElementById('lcdText').value.trim();
-            let message = '';
-
-            if (action === 'WRITE_TEXT' && text === '') {
-                document.getElementById('statusText').innerText = 'Please enter text!';
-                return;
-            } else if (action === 'WRITE_TEXT') {
-                message = `WRITE_TEXT:${text}`;
-            } else if (action === 'CLEAR') {
-                message = 'CLEAR';
-            }
-
+        async function sendCommand(command) {
             try {
                 const response = await fetch(serverUrl, {
                     method: 'POST',
@@ -89,13 +62,13 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        topic: 'ACTUATOR/LCD',
-                        message: message
+                        topic: 'ACTUATOR/RGBLED', // 전송할 MQTT 토픽
+                        message: command     // 전송할 메시지
                     })
                 });
 
                 if (response.ok) {
-                    console.log('Command sent successfully:', message);
+                    console.log('Command sent successfully:', command);
                     document.getElementById('statusText').innerText = 'Command Sent';
                 } else {
                     console.error('Failed to send command:', response.statusText);

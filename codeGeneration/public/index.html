@@ -49,7 +49,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Arduino Manager</h1>
+        <h1>Code Generation</h1>
         <h2>Devices</h2>
         <table>
             <thead>
@@ -97,13 +97,6 @@
             <pre><code id="generatedCode" class="language-none" rows="10" cols="145" readonly></code></pre>
         </div>
 
-        <div class="compileButton" id="compileButtonDiv">
-            <button id="compileCodeBtn">Compile Code</button>
-            <span id="compileStatus" class="status-icon"></span>
-        </div>
-        <div class="uploadButton" id="uploadButtonDiv">
-            <button id="uploadCodeBtn">Upload Code</button>
-        </div>
     </div>
     
     <div class="container">
@@ -121,11 +114,6 @@
         const deviceListElement = document.getElementById('deviceList');
         const deviceSelectElement = document.getElementById('deviceSelect');
         const generatedCodeElement = document.getElementById('generatedCode');
-        const compileButtonElement = document.getElementById('compileCodeBtn');
-        const compileStatusIcon = document.getElementById('compileStatus');
-        const compileButtonDiv = document.getElementById('compileButtonDiv');
-        const uploadButtonElement = document.getElementById('uploadCodeBtn');
-        const uploadButtonDiv = document.getElementById('uploadButtonDiv');
         const generateCodeBtn = document.getElementById('generateCodeBtn');
         let sensorModel = '';
         let deviceId = '';
@@ -140,48 +128,6 @@
                 Prism.highlightAll();
             } catch (error) {
                 console.error('Error generating code:', error);
-            }
-        });
-
-        compileButtonElement.addEventListener('click', async () => {
-            try {
-                const codeText = generatedCodeElement.textContent;
-                console.log('Code Text for Compilation:', codeText); 
-                const parsedCode = parseGeneratedText(codeText).code;
-                console.log('Parsed Code for Compilation:', parsedCode);
-                const result = await compileCode(parsedCode);
-                console.log('Compile result received:', result); 
-                if (result.message === "Code compiled successfully") {
-                    compileStatusIcon.className = 'status-icon success';
-                    compileStatusIcon.textContent = '✔'; 
-                    uploadButtonDiv.style.display = 'block'; // 컴파일 성공 시 업로드 버튼 표시
-                } else {
-                    compileStatusIcon.className = 'status-icon failure';
-                    compileStatusIcon.textContent = '✖'; 
-                    uploadButtonDiv.style.display = 'none'; // 컴파일 실패 시 업로드 버튼 숨기기
-                }
-            } catch (error) {
-                console.error('Error compiling code:', error);
-                compileStatusIcon.className = 'status-icon failure';
-                compileStatusIcon.textContent = '✖'; 
-            }
-        });
-
-        uploadButtonElement.addEventListener('click', async () => {
-            try {
-                const codeText = generatedCodeElement.textContent;
-                const parsedData = parseGeneratedText(codeText);
-                parsedData.sensor_model = sensorModel;
-                parsedData.device_id = deviceId; 
-                const selectedDevice = devices.find(device => device.device_id === deviceId);
-                parsedData.sensors = selectedDevice.sensors;
-                const response = await uploadCode(parsedData);
-                alert('Code uploaded successfully!');
-                // 업로드 성공 시 대시보드 페이지로 이동
-                window.location.href = '/dashboard';
-            } catch (error) {
-                console.error('Error uploading code:', error);
-                alert('Failed to upload code.');
             }
         });
 
@@ -318,35 +264,6 @@
                 console.error('Error generating code:', error);
                 alert('Failed to generate code: ' + error.message);
             }
-        }
-
-
-        async function compileCode(code) {
-            const response = await fetch('/compileCode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ code })
-            });
-            if (!response.ok) {
-                throw new Error('Failed to compile code');
-            }
-            return await response.json();
-        }
-
-        async function uploadCode(parsedData) {
-            const response = await fetch('/uploadCode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(parsedData)
-            });
-            if (!response.ok) {
-                throw new Error('Failed to upload code');
-            }
-            return await response.json();
         }
 
         function parseGeneratedText(text) {
