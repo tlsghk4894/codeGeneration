@@ -12,8 +12,9 @@ dotenv.config();
 
 const app = express();
 const port = 3000;
-const MQTT_BROKER_URL = 'mqtt://203.234.62.109'; // 라즈베리파이의 IP 주소를 여기에 입력하세요
+const MQTT_BROKER_URL = 'mqtt://203.234.62.109'; 
 const client = mqtt.connect(MQTT_BROKER_URL);
+//시스템 환경변수 편집
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // MySQL 연결 설정 - 데이터 수집 DB
@@ -50,8 +51,6 @@ connection.connect((err) => {
 app.use(bodyParser.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-
-let compileResult = null;
 let recentGeneratedCode = {}; // 최근 생성된 코드를 저장하기 위한 객체
 
 // MQTT 브로커 연결
@@ -64,6 +63,7 @@ client.on('message', async (topic, message) => {
     if (topic == 'SENSOR_DATA/STATUS') {
         const data = JSON.parse(message.toString());
         console.log('Compile result received:', data);  // 결과 로그 출력
+        latestData = JSON.parse(message.toString()); // 메시지를 JSON으로 파싱
         // 메시지가 오면 DB에 저장하는 함수 호출
         await saveDataToDatabase(data);
     }
@@ -97,13 +97,38 @@ async function saveDataToDatabase(data) {
         const tableName = `device${data.device_id.toString().padStart(4, '0')}`;
 
         // 동적으로 컬럼과 값을 설정
-        const columns = ['timestamp', `\`${actuatorName}\``];  // actuatorName을 백틱으로 감쌈
-        const values = [data.timestamp, data.actuator_state];
+        const columns = ['timestamp'];  // actuatorName을 백틱으로 감쌈
+        const values = [data.timestamp];
 
         // sensor 데이터가 존재하는 경우에만 추가
         if (sensorName && data.sensor_data) {
             columns.push(`\`${sensorName}\``);  // sensorName도 백틱으로 감쌈
             values.push(data.sensor_data);
+        }
+        if(data.actuator_data){
+            columns.push(`\`${actuatorName}\``);
+            values.push(data.actuator_data);
+        }
+        if (data.temperature && !columns.includes('`temperature`')) {
+            columns.push('`temperature`');
+            values.push(data.temperature);
+        }
+        if (data.humidity && !columns.includes('`humidity`')) {
+            columns.push('`humidity`');
+            values.push(data.humidity);
+        }
+        if (data.dust && !columns.includes('`dust`')) {
+            columns.push('`dust`');
+            values.push(data.dust);
+        }
+         // 추가적인 데이터가 존재할 경우 모두 추가
+        if (data.rgb_led && !columns.includes('`rgb_led`')) {
+            columns.push('`rgb_led`');
+            values.push(data.rgb_led);
+        }
+        if (data.fan && !columns.includes('`fan`')) {
+            columns.push('`fan`');
+            values.push(data.fan);
         }
 
         // 컬럼과 값을 ?로 매핑
@@ -119,6 +144,49 @@ async function saveDataToDatabase(data) {
     } 
 }
 
+app.get('/getDeviceData', async (req, res) => {
+    const tableName = req.query.table; // 요청에서 테이블 이름을 가져옴
+    const sensorNames = req.query.sensors ? req.query.sensors.split(',') : []; // 요청에서 센서 이름 가져오기
+    const actuatorNames = req.query.actuators ? req.query.actuators.split(',') : []; // 요청에서 액추에이터 이름 가져오기
+    console.log(sensorNames, actuatorNames);
+    if (!tableName) {
+        return res.status(400).json({ error: 'Table name is required.' });
+    }
+
+    try {
+        // 최신 데이터를 가져오는 쿼리
+        const rows = await query2(`SELECT * FROM ?? ORDER BY timestamp DESC LIMIT 1`, [tableName]);
+
+        if (rows.length === 0) {
+            return res.json({
+                sensor_data: sensorNames.map(name => ({ name, value: 'No data available' })),
+                actuator_data: actuatorNames.map(name => ({ name, value: 'No data available' }))
+            });
+        }
+
+        const latestData = rows[0];
+        console.log('Latest data:', latestData);
+        // 센서 및 액추에이터 데이터 매핑
+        const sensorData = sensorNames.map(name => ({
+            name,
+            value: latestData[name] || 'N/A'
+        }));
+
+        const actuatorData = actuatorNames.map(name => ({
+            name,
+            value: latestData[name] || 'N/A'
+        }));
+
+        res.json({
+            sensor_data: sensorData,
+            actuator_data: actuatorData
+        });
+        console.log(sensorData, actuatorData);
+    } catch (error) {
+        console.error('Error fetching device data:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 
 app.get('/itemSpecificDetail', (req, res) => {
@@ -148,27 +216,53 @@ async function generateCodeWithGPT(deviceData) {
     const url = 'https://api.openai.com/v1/chat/completions';
 
     // 메타데이터 파싱
-    const metadata = deviceData.itemSpecificDetails.reduce((acc, detail) => {
-        acc[detail.md_key] = detail.md_value;
-        return acc;
-    }, {});
+    const metadata = deviceData.metadata;
     const controlCommands = metadata.control_commands ? metadata.control_commands.split(',') : [];
     
 
-
-    // 하나의 파일에 모든 명령어에 대한 코드를 생성하도록 messages 준비
     const messageContent = `
         Generate Arduino code for the following device data:
         {
             "device_id": ${deviceData.device_id},
             "device_name": "${deviceData.device_name}",
-            "model_name": "${deviceData.model_name}",
-            "purpose": "${deviceData.purpose}",
             ${Object.keys(metadata).map(key => `"${key}": "${metadata[key]}"`).join(',\n')}
         }
-        Please create an Arduino program that handles the following commands: ${controlCommands.join(', ')}.
 
-    `;
+        The device could be an RGB LED, Servo Motor, or LCD Display. Generate **only** the necessary Arduino code for the specific device type, without any conditional statements (e.g., no if-statements for device types).
+
+        1. **Do not include any conditional statements (if-else, For ~:)**:
+            - The code should be specific to the provided device data without any conditions to check the device type.
+
+        2. **Do not include code block markers like \`\`\` or comments**:
+            - The code should be pure Arduino code without additional markers or comments.
+
+        3. **Variable Declaration**:
+        - Declare a variable \`device_id\` with the provided device_id value.
+        - Declare a variable \`currentActuatorState\` to store the state of the actuator (e.g., current color for RGB LED, angle for Servo Motor, message for LCD Display).
+        - Declare any other necessary variables based on the provided metadata.
+        - if the device has library imports, include them at the beginning of the code.
+
+        4. **Setup Function**:
+        - Initialize the pins and set up the serial communication in the \`setup()\` function.
+        
+        5. **Loop Function**:
+        - Continuously listen for commands and update the \`currentActuatorState\` based on the command received.
+        - For an RGB LED, handle commands like 'ON', 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+        - For a Servo Motor, handle commands like 'ROTATE_0', 'ROTATE_90', 'ROTATE_180', and 'OFF'.
+        - For an LCD Display, handle commands like 'WRITE_TEXT', 'CLEAR', etc.
+
+        6. **Initialize the device and handle commands**:
+            - For an **RGB LED**, initialize RGB LED pins and handle commands like 'ON', 'SET_COLOR_RED', 'SET_COLOR_GREEN', 'SET_COLOR_BLUE', and 'OFF'.
+            - For a **Servo Motor**, initialize the servo pin and handle commands like 'ROTATE_0', 'ROTATE_90', 'ROTATE_180', and 'OFF'.
+            - For an **LCD Display**, initialize LCD pins and handle commands like 'WRITE_TEXT' and 'CLEAR'.
+
+        7. **Send actuator state**:
+            if the device has a metadata.sensor_pin, send the sensor data as well in the same format:
+                - "{ \\"device_id\\": \\"<device_id>\\", \\"actuator\\": \\"<currentActuatorState>\\", \\"sensor\\": \\"<currentSensorData>\\" }"
+            else, send the current state of the actuator (e.g., color for RGB LED, angle for Servo Motor, message for LCD Display) to the Raspberry Pi at regular intervals. Use this format:
+            - "{ \\"device_id\\": \\"<device_id>\\", \\"actuator\\": \\"<currentActuatorState>\\" }"
+        Ensure the code is specific to the provided device and follows the above requirements. Do not include any unnecessary code, comments, explanations, or conditional logic for different device types.
+        `;
 
     const messages = [
         {
@@ -192,33 +286,117 @@ async function generateCodeWithGPT(deviceData) {
         });
 
         const code = response.data.choices[0].message.content;
-
-        // // device_name을 파일명으로 사용하여 모든 명령어를 하나의 파일로 저장
-        // const fileName = `${deviceData.device_name.replace(/\s+/g, '_')}.ino`; // 파일명에 공백을 언더스코어로 대체
-        // fs.writeFileSync(`./${fileName}`, code, 'utf8');
-        // console.log(`${fileName} 파일이 생성되었습니다.`);
-        // MQTT 클라이언트를 사용하여 파일 내용을 전송
-        const mqttClient = mqtt.connect('mqtt://203.234.62.109:1883');
-        mqttClient.on('connect', () => {
-            console.log('MQTT 클라이언트가 연결되었습니다.');
-
-            // device_name을 사용하여 토픽 정의
-            const topic = `UPLOAD/${deviceData.device_name.replace(/\s+/g, '_')}`; // 공백을 언더스코어로 대체
-            mqttClient.publish(topic, code, (err) => {
-                if (err) {
-                    console.error('MQTT 메시지 전송 실패:', err);
-                } else {
-                    console.log(`MQTT 메시지가 ${topic} 토픽으로 전송되었습니다.`);
-                }
-                mqttClient.end();
-            });
-        });
         return code;
 
     } catch (error) {
         console.error('Error generating code:', error);
     }
 }
+
+// 메타데이터 저장 엔드포인트 (갱신 포함)
+app.post('/savemetadata', async (req, res) => {
+    const { device_id, metadata } = req.body; // device_id와 메타데이터 객체 받음
+
+    if (!device_id || !metadata || Object.keys(metadata).length === 0) {
+        return res.status(400).json({ error: 'Device ID and metadata are required' });
+    }
+
+    try {
+        // 1. 먼저 기존 데이터를 완전히 삭제
+        const deleteQuery = `DELETE FROM code_generation_metadata WHERE device_id = ?`;
+        await query(deleteQuery, [device_id]);
+
+        // 2. 기존 데이터 삭제 성공 후 새로 메타데이터 삽입
+        const queries = [];
+        for (const key in metadata) {
+            const value = metadata[key];
+            const queryStr = `INSERT INTO code_generation_metadata (device_id, \`key\`, \`value\`) VALUES (?, ?, ?)`;
+            queries.push(query(queryStr, [device_id, key, value])); 
+        }
+
+        // 3. 메타데이터 저장 완료
+        await Promise.all(queries);  
+        res.status(200).json({ message: 'Metadata saved successfully' });
+    } catch (error) {
+        console.error('Error saving metadata:', error);
+        res.status(500).json({ error: 'Failed to save metadata' });
+    }
+});
+
+// 메타데이터 조회 엔드포인트
+app.get('/getMetadata/:deviceId', async (req, res) => {
+    const deviceId = req.params.deviceId;
+    try {
+        const queryStr = `SELECT \`key\`, \`value\` FROM code_generation_metadata WHERE device_id = ?`;
+        const rows = await query(queryStr, [deviceId]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No metadata found for this device' });
+        }
+
+        // 메타데이터를 key-value 쌍으로 반환
+        const metadata = {};
+        rows.forEach(row => {
+            metadata[row.key] = row.value;
+        });
+
+        res.status(200).json(metadata);
+    } catch (error) {
+        console.error('Error fetching metadata:', error);
+        res.status(500).json({ error: 'Failed to fetch metadata' });
+    }
+});
+
+
+// 엔드포인트: 가장 최근의 센서 데이터를 가져오는 API
+app.get('/get-sensor-data', async (req, res) => {
+    try {
+        // CO 센서 데이터를 수집할 테이블 이름 (예: CO 센서 데이터가 저장된 테이블)
+        const sensorTable = 'device0001';  // 디바이스 ID에 따라 테이블 이름을 설정
+        const sensorColumn = 'MQ7';  // 센서 컬럼 이름
+        
+        // 가장 최근의 데이터를 조회하는 SQL 쿼리
+        const queryStr = `SELECT \`${sensorColumn}\` as co_level FROM ${sensorTable} ORDER BY timestamp DESC LIMIT 1`;
+        
+        // 데이터베이스 쿼리 실행
+        const [rows] = await query2(queryStr);
+        
+        console.log('Query result:', rows);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'No sensor data found' });
+        }
+        
+        // 최신 센서 데이터를 클라이언트로 전송
+        const latestData = rows.co_level;
+        console.log('Latest sensor data:', latestData);
+        res.json({
+            co_level: latestData
+        });
+        
+    } catch (error) {
+        console.error('Error fetching sensor data:', error);
+        res.status(500).json({ error: 'Failed to fetch sensor data' });
+    }
+});
+app.get('/api/get-latest-data', (req, res) => {
+    const query = `SELECT * FROM device0004 ORDER BY timestamp DESC LIMIT 1`;
+
+    dbConfig.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching data:', err);
+            res.status(500).json({ error: 'Failed to fetch data' });
+            return;
+        }
+
+        if (results.length === 0) {
+            res.status(404).json({ message: 'No data found' });
+            return;
+        }
+
+        res.json(results[0]);
+    });
+});
 
 
 // 엔드포인트: 디바이스 목록 가져오기
@@ -237,12 +415,11 @@ app.get('/getDevices', async (req, res) => {
             const itemSpecificDetails = itemSpecificDetailResponse.data.filter(detail => detail.item_id === device.item_id);
             
             //코드 생성에 필요하다고 생각되는 것들을 리스트업
-            device.sensors = itemSpecificDetails.filter(detail => detail.md_key === 'sensor').map(detail => detail.md_value);
-            device.purpose = itemSpecificDetails.find(detail => detail.md_key === 'purpose')?.md_value || 'N/A';
+            device.sensor = itemSpecificDetails.filter(detail => detail.md_key === 'sensor').map(detail => detail.md_value);
+            // device.purpose = itemSpecificDetails.find(detail => detail.md_key === 'purpose')?.md_value || 'N/A';
             // device.Sensor_Pins = itemSpecificDetails.filter(detail => detail.md_key === 'sensor_pin').map(detail => detail.md_value);
-            device.Actuator_Pins = itemSpecificDetails.filter(detail => detail.md_key.includes('pin')).map(detail => detail.md_value);
+            device.actuator = itemSpecificDetails.filter(detail => detail.md_key.includes('actuator')).map(detail => detail.md_value);
         }
-
         res.json(arduinoDevices);
     } catch (error) {
         console.error('Error fetching devices:', error);
@@ -292,77 +469,42 @@ app.get('/collectedData/:deviceId', async (req, res) => {
 });
 
 // 코드를 컴파일하는 엔드포인트
-app.post('/compileCode', (req, res) => {
-    const { code } = req.body;
-    if (!code) {
-        return res.status(400).json({ error: 'No code provided' });
-    }
+app.post("/compile/:device_name", (req, res) => {
+    const device_name = req.params.device_name;
+    const code = req.body.code;
 
-    const mqttMessage = JSON.stringify({ code });
+    // MQTT 토픽 설정
+    const topic = `compile/${device_name}`;
 
-    compileResult = null;
+    console.log(`Sending code to topic: ${topic}`); // 전송할 토픽 확인 로그
 
-    try {
-        client.publish('compile/code', mqttMessage, (err) => {
-            if (err) {
-                console.error('Failed to send code for compilation via MQTT:', err);
-                return res.status(500).json({ error: 'Failed to send code for compilation via MQTT', details: err.message });
-            }
+    // MQTT로 코드 전송
+    client.publish(topic, code, (error) => {
+        if (error) {
+            console.error("Failed to send code:", error);
+            return res.json({ success: false, message: "코드 전송 실패" });
+        }
 
-            setTimeout(() => {
-                if (compileResult) {
-                    if (compileResult.success) {
-                        res.status(200).json({ message: 'Code compiled successfully', output: compileResult.output });
-                    } else {
-                        res.status(500).json({ error: 'Compilation failed', details: compileResult.output });
-                    }
-                } else {
-                    res.status(500).json({ error: 'No compilation result received' });
-                }
-            }, 5000);
-        });
-    } catch (err) {
-        console.error('Error during compilation:', err);
-        res.status(500).json({ error: 'Internal Server Error', details: err.message });
-    }
+        // 성공적으로 전송된 경우 로그 출력
+        console.log(`Code successfully sent to topic: ${topic}`);
+        res.json({ success: true, message: "코드가 성공적으로 전송되었습니다. 컴파일 결과를 기다리세요." });
+    });
 });
 
 // 코드를 업로드하는 엔드포인트
-let currentDeviceId = null;
+app.post("/upload/:device_name", (req, res) => {
+    const code = req.body.code;
+    const device_name = req.params.device_name;
+    const client = mqtt.connect("mqtt://203.234.62.109:1883");
 
-app.post('/uploadCode', (req, res) => {
-    let code, sensor_model, device_id, sensors;
-    code = req.body.code;
-    sensor_model = req.body.sensor_model;
-    device_id = req.body.device_id;
-    sensors = req.body.sensors;
-    console.log(sensors);
-
-    if (!code) {
-        return res.status(400).json({ error: 'No code provided' });
-    }
-    if (!sensor_model) {
-        return res.status(400).json({ error: 'No sensor_model provided' });
-    }
-    if (!device_id) {
-        return res.status(400).json({ error: 'No device_id provided' });
-    }
-    if (!sensors || !Array.isArray(sensors)) {
-        return res.status(400).json({ error: 'No sensors provided or sensors is not an array' });
-    }
-
-    currentDeviceId = device_id; // 전역 변수에 저장
-    const parsedData = { code, sensor_model, device_id, sensors };
-
-    const mqttMessage = JSON.stringify(parsedData);
-
-    client.publish('upload/code', mqttMessage, (err) => {
-        if (err) {
-            console.error('Failed to send code via MQTT:', err);
-            return res.status(500).json({ error: 'Failed to send code via MQTT', details: err.message });
-        }
-
-        res.status(200).json({ message: 'Code sent to Raspberry Pi via MQTT' });
+    client.on("connect", () => {
+        client.publish(`UPLOAD/${device_name}`, code, (error) => {
+            client.end();
+            if (error) {
+                return res.json({ success: false, error });
+            }
+            res.json({ success: true });
+        });
     });
 });
 
